@@ -1,0 +1,2 @@
+// ERROR CODE
+#define	ERROR_INIT	-1

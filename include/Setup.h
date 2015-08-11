@@ -1,0 +1,5 @@
+#define ADXL345_RATE    800
+#define L3G4200D_RATE   400
+#define L3G4200D_RANGE  250
+#define HMC5883L_RATE   15
+

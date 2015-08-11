@@ -92,6 +92,7 @@
 #define BMP085_MC               0xBC
 #define BMP085_MD               0xBE
 
+
 // Functions of ADXL345
 extern void ADXL345_init(int i);
 extern int ADXL345_getRawValue(short* accl);

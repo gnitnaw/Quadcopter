@@ -1,14 +1,34 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include <bcm2835.h>
 #include "GY80.h"
+#include "Setup.h"
+
 #define	OSRS		3
 #define P0              101325
 
-extern int ADXL345_RATE;
-extern int L3G4200D_RATE;
-extern int L3G4200D_RANGE;
-extern int HMC5883L_RATE;
+#ifndef ADXL345_RATE
+#define ADXL345_RATE    800
+#endif
+
+#ifndef L3G4200D_RATE
+#define L3G4200D_RATE   400
+#endif
+
+#ifndef L3G4200D_RANGE
+#define L3G4200D_RANGE  250
+#endif
+
+#ifndef HMC5883L_RATE
+#define HMC5883L_RATE   15
+#endif
+
+//extern int ADXL345_RATE;
+//extern int L3G4200D_RATE;
+//extern int L3G4200D_RANGE;
+//extern int HMC5883L_RATE;
 
 struct BMP085_Parameters {
     short AC1;
@@ -25,7 +45,8 @@ struct BMP085_Parameters {
 };
 
 static struct BMP085_Parameters Para_BMP085;
-static char regaddr[2], databuf[3];
+
+static char regaddr[2], databuf[22];
 
 void exchange(char *buf, int len) {
     int i;
@@ -92,7 +113,7 @@ void ADXL345_init(int i) {
 
 int ADXL345_getRawValue(short* accl) {
     char *buf = (char*) accl;
-    init_ADXL345(0);
+    ADXL345_init(0);
     regaddr[0] = ADXL345_DATAX0;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(buf, 6) != BCM2835_I2C_REASON_OK) return -1;
@@ -163,7 +184,7 @@ void L3G4200D_init(int i) {
 int L3G4200D_getRawValue(short* gyco) {
     int i ;
     char *buf = (char*) gyco;
-    init_L3G4200D(0);
+    L3G4200D_init(0);
 
     for (i=0; i<6; ++i) {
         regaddr[0] = L3G4200D_OUT_X_L + i;
@@ -222,7 +243,7 @@ void HMC5883L_init(int i) {
 
 int HMC5883L_getRawValue(short* mag) {
     char *buf = (char*) mag;
-    init_HMC5883L(0);
+    HMC5883L_init(0);
     regaddr[0] = HMC5883L_DATA_X_MSB;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(buf, 6) != BCM2835_I2C_REASON_OK) return -1;
@@ -236,11 +257,14 @@ void BMP085_init(int i) {
         return;
     }
 
+    bcm2835_i2c_setSlaveAddress(BMP085);
     char *buf = (char*)&Para_BMP085;
+
     if (i==1) {
         regaddr[0] = BMP085_AC1;
+	regaddr[1] = 0;
         bcm2835_i2c_write(regaddr, 1);
-	if (bcm2835_i2c_read(buf, sizeof(Para_BMP085)) != BCM2835_I2C_REASON_OK) {
+	if (bcm2835_i2c_read(buf, 22) != BCM2835_I2C_REASON_OK) {
 	    puts("Parameters of BMP085 are not correctly loaded");
             return;
 	}
@@ -250,11 +274,12 @@ void BMP085_init(int i) {
         printf("ACN : %d\t%d\t%d\t", Para_BMP085.AC1, Para_BMP085.AC2, Para_BMP085.AC3);
         printf("%d\t%d\t%d\n", Para_BMP085.AC4, Para_BMP085.AC5, Para_BMP085.AC6);
         printf("B and M : %d\t%d\t%d\t%d\t%d\n", Para_BMP085.B1, Para_BMP085.B2, Para_BMP085.MB, Para_BMP085.MC, Para_BMP085.MD);
+
     }
 }
 
 int BMP085_Trigger_UTemp(void) {
-    init_BMP085(0);
+    BMP085_init(0);
     regaddr[0] = 0xF4;
     regaddr[1] = 0x2E;
     bcm2835_i2c_write(regaddr,2);
@@ -263,7 +288,7 @@ int BMP085_Trigger_UTemp(void) {
 }
 
 int BMP085_Trigger_UPressure(void) {
-    init_BMP085(0);
+    BMP085_init(0);
     regaddr[0] = 0xF4;
     regaddr[1] = 0x34+(OSRS<<6);
     bcm2835_i2c_write(regaddr,2);
