@@ -1,0 +1,2 @@
+project(QUADCOPTER)
+subdirs(src)

@@ -1,0 +1,5 @@
+include_directories(${QUADCOPTER_SOURCE_DIR}/include)
+#include_directories(/usr/local/include)
+add_library(libGY80 GY80.c)
+#add_executable(QUADCOPTER main.c)
+#target_link_libraries(QUADCOPTER libGY80)
