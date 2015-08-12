@@ -4,31 +4,16 @@
 #include <string.h>
 #include <bcm2835.h>
 #include "GY80.h"
-#include "Setup.h"
 
 #define	OSRS		3
 #define P0              101325
+#define	ADXL345_UNIT	0.0392266	// Unit of ADXL345 is 4mg
+#define L3G4200D_UNIT	0.00875		// Unit of L3G4200D when range = 250 dps
 
-#ifndef ADXL345_RATE
-#define ADXL345_RATE    800
-#endif
-
-#ifndef L3G4200D_RATE
-#define L3G4200D_RATE   400
-#endif
-
-#ifndef L3G4200D_RANGE
-#define L3G4200D_RANGE  250
-#endif
-
-#ifndef HMC5883L_RATE
-#define HMC5883L_RATE   15
-#endif
-
-//extern int ADXL345_RATE;
-//extern int L3G4200D_RATE;
-//extern int L3G4200D_RANGE;
-//extern int HMC5883L_RATE;
+extern int ADXL345_RATE;
+extern int L3G4200D_RATE;
+extern int L3G4200D_RANGE;
+extern int HMC5883L_RATE;
 
 struct BMP085_Parameters {
     short AC1;
@@ -45,8 +30,9 @@ struct BMP085_Parameters {
 };
 
 static struct BMP085_Parameters Para_BMP085;
-
 static char regaddr[2], databuf[22];
+volatile static short accl[3], gyro[3];
+volatile static long UP, UT;
 
 void exchange(char *buf, int len) {
     int i;
@@ -111,12 +97,20 @@ void ADXL345_init(int i) {
 
 }
 
-int ADXL345_getRawValue(short* accl) {
-    char *buf = (char*) accl;
+int ADXL345_getRawValue(void) {
     ADXL345_init(0);
     regaddr[0] = ADXL345_DATAX0;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read(buf, 6) != BCM2835_I2C_REASON_OK) return -1;
+    if (bcm2835_i2c_read((char*)accl, 6) != BCM2835_I2C_REASON_OK) return -1;
+    return 0;
+}
+
+int ADXL345_getRealData(double* acceleration) {
+    int i;
+    if (ADXL345_getRawValue()!=0) return -1;
+    for (i=0; i<3; ++i) {
+	acceleration[i] = accl[i] * ADXL345_UNIT;
+    }
     return 0;
 }
 
@@ -160,16 +154,16 @@ void L3G4200D_init(int i) {
         regaddr[0] = L3G4200D_CTRL_REG4;		// bit 7 : Block Data Update : 0 : continue, 1 : update when reading
 	switch(L3G4200D_RANGE) {			// bit 4,5 : Full Scale selection (250/500/2000)
 	    case 250:
-		regaddr[1] = 0x00;
+		regaddr[1] = 0x80;
 		break;
 	    case 500:
-		regaddr[1] = 0x10;
+		regaddr[1] = 0x90;
 		break;
 	    case 2000:
-		regaddr[1] = 0x20;
+		regaddr[1] = 0xA0;
 		break;
 	    default :
-		regaddr[1] = 0x00;
+		regaddr[1] = 0x80;
 	}
         bcm2835_i2c_write(regaddr,2);
 
@@ -181,15 +175,29 @@ void L3G4200D_init(int i) {
 
 }
 
-int L3G4200D_getRawValue(short* gyco) {
+int L3G4200D_getRawValue(void) {
     int i ;
-    char *buf = (char*) gyco;
+    char *buf = (char*) gyro;
     L3G4200D_init(0);
 
     for (i=0; i<6; ++i) {
         regaddr[0] = L3G4200D_OUT_X_L + i;
         bcm2835_i2c_write(regaddr, 1);
         if (bcm2835_i2c_read(&buf[i], 1) != BCM2835_I2C_REASON_OK) return -1;
+    }
+
+    return 0;
+
+}
+
+int L3G4200D_getRealData(double* angVel) {
+    int i;
+    if (L3G4200D_getRawValue()!=0) return -1;
+
+    for (i=0; i<3; ++i) {
+	angVel[i] = gyro[i] * L3G4200D_UNIT;
+	if (L3G4200D_RANGE == 500) angVel[i] *= 2;
+	else if (L3G4200D_RANGE == 2000) angVel[i] *= 8;
     }
 
     return 0;
@@ -278,46 +286,50 @@ void BMP085_init(int i) {
     }
 }
 
-int BMP085_Trigger_UTemp(void) {
+void BMP085_Trigger_UTemp(void) {
     BMP085_init(0);
     regaddr[0] = 0xF4;
     regaddr[1] = 0x2E;
     bcm2835_i2c_write(regaddr,2);
     usleep(5000);
-    return 0;
 }
 
-int BMP085_Trigger_UPressure(void) {
+void BMP085_Trigger_UPressure(void) {
     BMP085_init(0);
     regaddr[0] = 0xF4;
     regaddr[1] = 0x34+(OSRS<<6);
     bcm2835_i2c_write(regaddr,2);
     usleep(25500);
-    return 0;
 }
 
-int BMP085_getRawTemp(long *UT) {
+int BMP085_getRawTemp(void) {
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(databuf, 2) != BCM2835_I2C_REASON_OK) return -1;
-    *UT = (long)(databuf[0]<<8) + databuf[1];
-    if (*UT == 0) return -1;
+    UT = (long)(databuf[0]<<8) + databuf[1];
+    if (UT == 0) return -1;
     else return 0;
 }
 
-int BMP085_getRawPressure(long *UP) {
+int BMP085_getRawPressure(void) {
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(databuf, 3) != BCM2835_I2C_REASON_OK) return -1;
-    *UP = ((long)(databuf[0]<<16) + (long)(databuf[1]<<8) + databuf[2]) >> (8-OSRS);
+    UP = ((long)(databuf[0]<<16) + (long)(databuf[1]<<8) + databuf[2]) >> (8-OSRS);
+    if (UP == 0) return -1;
     return 0;
 }
 
-int BMP085_getRealData(long *UT, long *UP, long *RT, long *RP, double *altitude) {
-    long X1 = ((*UT - Para_BMP085.AC6) * Para_BMP085.AC5) >>15;
+int BMP085_getRealData(double *RTD, long *RP, double *altitude) {
+    BMP085_Trigger_UTemp();
+    if (BMP085_getRawTemp() !=0 ) return -1;
+    BMP085_Trigger_UPressure();
+    if (BMP085_getRawPressure() != 0 ) return -1;
+
+    long X1 = ((UT - Para_BMP085.AC6) * Para_BMP085.AC5) >>15;
     long X2 = (Para_BMP085.MC <<11) / (X1+Para_BMP085.MD);
     long B5 = X1+X2;
-    *RT = (B5+8)>>4;
+    *RTD = ((B5+8)>>4)/10.;
 
     long B6 = B5 - 4000;
     X1 = (Para_BMP085.B2*((B6*B6)>>12))>>11;
@@ -328,7 +340,7 @@ int BMP085_getRealData(long *UT, long *UP, long *RT, long *RP, double *altitude)
     X2 = (Para_BMP085.B1 * (B6*B6)>>12)>>16;
     X3 = ((X1+X2)+2)>>2;
     long B4 = (Para_BMP085.AC4 * ((unsigned long)X3 + 32768)) >>15;
-    unsigned long B7 = ((unsigned long)(*UP) - B3) * (50000 >> OSRS);
+    unsigned long B7 = ((unsigned long)UP - B3) * (50000 >> OSRS);
 
     if (B7 < 0x80000000) *RP = (B7 * 2) / B4 ;
     else *RP = (B7 / B4) * 2 ;

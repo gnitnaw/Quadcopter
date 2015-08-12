@@ -91,25 +91,3 @@
 #define BMP085_MB               0xBA
 #define BMP085_MC               0xBC
 #define BMP085_MD               0xBE
-
-
-// Functions of ADXL345
-extern void ADXL345_init(int i);
-extern int ADXL345_getRawValue(short* accl);
-
-// Functions of L3G4200D
-extern void L3G4200D_init(int i);
-extern int L3G4200D_getRawValue(short* gyco);
-
-// Functions of HMC5883L
-extern void HMC5883L_init(int i);
-extern int HMC5883L_getRawValue(short* mag);
-
-// Functions of BMP085
-extern void BMP085_init(int i);
-extern int BMP085_Trigger_UTemp(void);
-extern int BMP085_Trigger_UPressure(void);
-extern int BMP085_getRawTemp(long *UT);
-extern int BMP085_getRawPressure(long *UP);
-extern int BMP085_getRealData(long *UT, long *UP, long *RT, long *RP, double *altitude);
-
