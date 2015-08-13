@@ -1,5 +1,6 @@
 include_directories(${QUADCOPTER_SOURCE_DIR}/include)
 add_library(GY80 GY80.c)
+add_library(PCA9685PW PCA9685PW.c)
 link_directories(${QUADCOPTER_SOURCE_DIR}/src)
 add_executable(QUADCOPTER main.c Setup.c)
-target_link_libraries(QUADCOPTER GY80 -lbcm2835 -lm)
+target_link_libraries(QUADCOPTER GY80 PCA9685PW -lbcm2835 -lm)
