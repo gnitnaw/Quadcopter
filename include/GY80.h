@@ -1,8 +1,4 @@
-// Slave address
-#define ADXL345         	0x53            // 3 Axis Accelerometer         Analog Devices ADXL345 
-#define L3G4200D                0x69            // 3 Axis Gyro                  ST Microelectronics L3G4200D
-#define HMC5883L        	0x1E            // 3 Axis Magnetometer          Honeywell HMC5883L
-#define BMP085          	0x77            // Barometer + Thermometer      Bosch BMP085
+#include "I2CDevice.h"
 
 // Address for ADXL345
 #define ADXL345_DEVID           0x00
@@ -91,3 +87,4 @@
 #define BMP085_MB               0xBA
 #define BMP085_MC               0xBC
 #define BMP085_MD               0xBE
+

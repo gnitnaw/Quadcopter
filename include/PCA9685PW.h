@@ -1,5 +1,3 @@
-#define	PCA9685PW	0x40
-
 // Address for PCA9685PW
 #define PCA9685PW_MODE1			0x00
 #define PCA9685PW_MODE2			0x01

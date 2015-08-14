@@ -4,6 +4,7 @@
 #include <string.h>
 #include <bcm2835.h>
 #include "GY80.h"
+#include "Error.h"
 
 #define	OSRS		3
 #define P0              101325
@@ -50,7 +51,7 @@ void ADXL345_init(int i) {
 	puts("MUST BE 0 or 1 !");
 	return;
     }
-    bcm2835_i2c_setSlaveAddress(ADXL345);
+    bcm2835_i2c_setSlaveAddress(ADXL345_ADDR);
 
     if (i==1) {
         regaddr[0] = ADXL345_POWER_CTL;			// Standby
@@ -123,7 +124,7 @@ void L3G4200D_init(int i) {
         return;
     }
 
-    bcm2835_i2c_setSlaveAddress(L3G4200D);
+    bcm2835_i2c_setSlaveAddress(L3G4200D_ADDR);
 
     if (i==1) {
         regaddr[0] = L3G4200D_CTRL_REG1;
@@ -210,7 +211,7 @@ void HMC5883L_init(int i) {
         return;
     }
 
-    bcm2835_i2c_setSlaveAddress(HMC5883L);
+    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
 
     if (i==1) {
         regaddr[0] = HMC5883L_CONF_REG_A;		// No. of Sampling and data rate
@@ -265,7 +266,7 @@ void BMP085_init(int i) {
         return;
     }
 
-    bcm2835_i2c_setSlaveAddress(BMP085);
+    bcm2835_i2c_setSlaveAddress(BMP085_ADDR);
     char *buf = (char*)&Para_BMP085;
 
     if (i==1) {
