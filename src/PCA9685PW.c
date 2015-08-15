@@ -6,24 +6,16 @@
 #include "PCA9685PW.h"
 
 extern int PCA9685PW_FREQ;
-static char regaddr[64];
-static char databuf[2];
+static char regaddr[2];
+static char databuf[4];
 
-void exchange(char *buf, int len) {
-    int i;
-    char tmp;
-    for (i=0; i<len; ++i) {
-        tmp = buf[i];
-        buf[i] = buf[i+1];
-        buf[i+1] = tmp;
-        ++i;
-    }
+int baseReg(int pin) {
+    return PCA9685PW_LED0_ON_L + pin * 4;
 }
 
-char baseReg(char pin) {
-    return PCA9685PW_LED0_ON_L + pin*4;
+int baseRegOff(int pin) {
+    return PCA9685PW_LED0_OFF_L + pin * 4;
 }
-
 
 void PCA9685PW_PWMReset(void);
 void PCA9685PW_init(int i) {
@@ -104,91 +96,164 @@ void PCA9685PW_PWMReset(void) {				// == All turn off
 }
 
 
-int pca9685PWMReadSingle(char pin, unsigned short *on, unsigned short *off) {
-    PCA9685PW_init(0);
-    regaddr[0] = baseReg(pin);
-    bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)on, 2) != BCM2835_I2C_REASON_OK) return -1;
-//    printf("On: %02X\n", *on&0xFFF);
-    regaddr[0] += 2;
-    bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)off, 2) != BCM2835_I2C_REASON_OK) return -1;
-//    printf("Off: %02X\n", *off&0xFFF);
-    return 0;
-}
-
-int pca9685PWMReadSingleOff(char pin, int *off) {
-    PCA9685PW_init(0);
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)off, 4) != BCM2835_I2C_REASON_OK) return -1;
-    *off >>= 16;
-    return 0;
-}
-
-
-int pca9685PWMReadMulti(char pin, unsigned short *data, int num) {  // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
-    PCA9685PW_init(0);
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)data, num*4) != BCM2835_I2C_REASON_OK) return -1;
-
-    return 0;
-}
-
-int pca9685PWMReadMultiOff(char pin, int *data, int num) {  // if pin = 0, num = 3, data will be : off_0, off_1, off_2
-    int i;
-    PCA9685PW_init(0);
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)data, num*4) != BCM2835_I2C_REASON_OK) return -1;
-    for (i=0; i<num; ++i) data[i] >>= 16;
-    return 0;
-}
-
-void pca9685PWMWriteSingle(char pin, unsigned short *on, unsigned short *off) {
-    PCA9685PW_init(0);
-    regaddr[0] = baseReg(pin);
-    regaddr[1] = *on&0xFF;
-    bcm2835_i2c_write(regaddr, 2);
-
-    regaddr[0] += 1;
-    regaddr[1] = *on >> 8;
-    bcm2835_i2c_write(regaddr, 2);
-
-    regaddr[0] += 1;
-    regaddr[1] = *off&0xFF;
-    bcm2835_i2c_write(regaddr, 2);
-
-    regaddr[0] += 1;
-    regaddr[1] = *off >> 8;
-    bcm2835_i2c_write(regaddr, 2);
-}
-
-void pca9685PWMWriteSingleOff(char pin, int *off) {
-    PCA9685PW_init(0);
-    *off <<= 16;
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    memcpy(&regaddr[1], (char*)off, 4);
-    bcm2835_i2c_write(regaddr, 5);
-}
-
-void pca9685PWMWriteMulti(char pin, unsigned short *data, int num) { // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
-    PCA9685PW_init(0);
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    memcpy(&regaddr[1], (char*)data, num*4);
-
-    bcm2835_i2c_write(regaddr, num*4+1);
-}
-
-void pca9685PWMWriteMultiOff(char pin, int *data, int num) { // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
+int pca9685PWMReadSingle(int pin, int *on, int *off) {
     PCA9685PW_init(0);
     int i;
-    for (i=0; i<num; ++i) data[i] <<=16;
-    regaddr[0] = PCA9685PW_LED0_ON_L + pin * 4;
-    memcpy(&regaddr[1], (char*)data, num*4);
+    regaddr[0] = baseReg(pin);
 
-    bcm2835_i2c_write(regaddr, num*4+1);
+
+    for (i=0; i<4; ++i) {
+    	bcm2835_i2c_write(regaddr, 1);
+    	if (bcm2835_i2c_read(&databuf[i], 1) != BCM2835_I2C_REASON_OK) return -1;
+	++regaddr[0];
+    }
+
+    *on = (databuf[0] + ((int)databuf[1]<<8)) & 0xFFF;
+    *off = (databuf[2] + ((int)databuf[3]<<8)) & 0xFFF;
+
+    return 0;
 }
 
+int pca9685PWMReadSingleOff(int pin, int *off) {
+    int i;
+    PCA9685PW_init(0);
+    regaddr[0] = baseReg(pin)+2;
+    for (i=0; i<2; ++i) {
+        bcm2835_i2c_write(regaddr, 1);
+        if (bcm2835_i2c_read(&databuf[i], 1) != BCM2835_I2C_REASON_OK) return -1;
+        ++regaddr[0];
+    }
+
+    *off = (databuf[0] + ((int)databuf[1]<<8)) & 0xFFF;
+    return 0;
+}
+
+
+int pca9685PWMReadMulti(int pin, int *data, int num) {  // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
+    int i,j;
+    PCA9685PW_init(0);
+    regaddr[0] = baseReg(pin);
+
+    for (i=0; i<num; ++i) {
+	for (j=0; j<4; ++j) {
+	    bcm2835_i2c_write(regaddr, 1);
+	    if (bcm2835_i2c_read(&databuf[i*4+j], 1) != BCM2835_I2C_REASON_OK) return -1;
+            ++regaddr[0];
+    	}
+	data[i*2] = (databuf[i<<2] + ((int)databuf[(i<<2)+1]<<8)) & 0xFFF;
+    	data[i*2+1] = (databuf[(i<<2)+2] + ((int)databuf[(i<<2)+3]<<8)) & 0xFFF;
+    }
+
+    return 0;
+}
+
+int pca9685PWMReadMultiOff(int pin, int *data, int num) {  // if pin = 0, num = 3, data will be : off_0, off_1, off_2
+    int i,j;
+    PCA9685PW_init(0);
+
+    for (i=0; i<num; ++i) {
+	regaddr[0] = baseReg(pin+i)+2;
+        for (j=0; j<2; ++j) {
+            bcm2835_i2c_write(regaddr, 1);
+            if (bcm2835_i2c_read(&databuf[i*2+j], 1) != BCM2835_I2C_REASON_OK) return -1;
+            ++regaddr[0];
+        }
+        data[i] = (databuf[i<<1] + ((int)databuf[(i<<1)+1]<<8)) & 0xFFF;
+    }
+
+    return 0;
+}
+
+void pca9685PWMWriteSingle(int pin, int on, int off) {
+    char reg[2];
+    PCA9685PW_init(0);
+    reg[0] = baseReg(pin);
+    reg[1] = on&0xFF;
+    bcm2835_i2c_write(reg, 2);
+
+    reg[0] += 1;
+    reg[1] = on >> 8;
+    bcm2835_i2c_write(reg, 2);
+
+    reg[0] += 1;
+    reg[1] = off&0xFF;
+    bcm2835_i2c_write(reg, 2);
+
+    reg[0] += 1;
+    reg[1] = off >> 8;
+    bcm2835_i2c_write(reg, 2);
+
+/*
+    PCA9685PW_init(0);
+    regaddr[0] = baseReg(pin);
+    regaddr[1] = on&0xFF;
+    bcm2835_i2c_write(regaddr, 2);
+
+    regaddr[0] += 1;
+    regaddr[1] = on >> 8;
+    bcm2835_i2c_write(regaddr, 2);
+
+    regaddr[0] += 1;
+    regaddr[1] = off&0xFF;
+    bcm2835_i2c_write(regaddr, 2);
+
+    regaddr[0] += 1;
+    regaddr[1] = off >> 8;
+    bcm2835_i2c_write(regaddr, 2);
+*/
+}
+
+void pca9685PWMWriteSingleOff(int pin, int off) {
+    PCA9685PW_init(0);
+
+    regaddr[0] = baseRegOff(pin);
+    regaddr[1] = off&0xFF;
+    bcm2835_i2c_write(regaddr, 2);
+
+    regaddr[0] += 1;
+    regaddr[1] = off >> 8;
+    bcm2835_i2c_write(regaddr, 2);
+
+}
+
+void pca9685PWMWriteMulti(int pin, int *data, int num) { // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
+    int i,j;
+
+    PCA9685PW_init(0);
+    regaddr[0] = baseReg(pin);
+
+    for (i=0; i<num; ++i) {
+        for (j=0; j<2; ++j) {
+	    regaddr[1] = data[i*2+j] &0xFF;
+            bcm2835_i2c_write(regaddr, 2);
+	    regaddr[0]++;
+            regaddr[1] = data[i*2+j] >>8;
+            bcm2835_i2c_write(regaddr, 2);
+	    regaddr[0]++;
+        }
+    }
+}
+
+void pca9685PWMWriteMultiOff(int pin, int *data, int num) { // if pin = 0, num = 3, data will be : off_0, off_1, off_2
+//    PCA9685PW_init(0);
+
+    int i;
+/*
+    while (i<num) {
+	regaddr[0] = baseReg(pin++)+2;
+	regaddr[1] = data[i]&0xFF;
+	bcm2835_i2c_write(regaddr, 2);
+
+	regaddr[0] += 1;
+	regaddr[1] = data[i] >> 8;
+	bcm2835_i2c_write(regaddr, 2);
+
+	++i;
+    }
+*/
+    while (i<num){
+        pca9685PWMWriteSingleOff(pin++, data[i]);
+	++i;
+    }
+}
 

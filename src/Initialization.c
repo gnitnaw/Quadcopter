@@ -17,6 +17,7 @@ int init_all(void) {
     if (!bcm2835_init()) return -1;
     bcm2835_i2c_begin();
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+    //bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_2500);
     return 0;
 }
 
