@@ -2,9 +2,16 @@
 #include <string.h>
 #include <bcm2835.h>
 #include "I2CDevice.h"
+#include "Error.h"
+
 #define	NI2CITEM	5
 #define LINESIZE        80
 
+extern void ADXL345_init(int i);
+extern void L3G4200D_init(int i);
+extern void HMC5883L_init(int i);
+extern void BMP085_init(int i);
+extern void PCA9685PW_init(int i);
 enum {
     ADXL345,
     L3G4200D,
@@ -13,11 +20,22 @@ enum {
     PCA9685PW
 };
 
+int checkI2CDevice(void);
+
 int init_all(void) {
-    if (!bcm2835_init()) return -1;
+    int ret;
+    if (!bcm2835_init()) return ERROR_BCM2835_INIT;
     bcm2835_i2c_begin();
-    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
-    //bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_2500);
+    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);		// 400 kHz
+
+    if ((ret = checkI2CDevice())!=0) return ret;
+
+    ADXL345_init(1);
+    L3G4200D_init(1);
+    HMC5883L_init(1);
+    BMP085_init(1);
+    PCA9685PW_init(1);
+
     return 0;
 }
 
@@ -64,7 +82,7 @@ int checkI2CDevice(void) {
     for (i=0; i<NI2CITEM; ++i) {
         if (exist[i]==0) {
 	    printf("%dth Item!\n", i);
-	    return -1;
+	    return -10-i;
 	}
     }
 

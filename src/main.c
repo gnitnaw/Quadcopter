@@ -17,35 +17,8 @@ extern void pca9685PWMWriteMultiOff(short pin, int *data, int num); // if pin = 
 */
 int main(void) {
 
-    int i, data[5][2], mm[10];
-    int pin[] = {0,1,2,3,4,5,6,7,8,9};
-    if (init_all()!=0) return ERROR_INIT;
-    PCA9685PW_init(1);
-
-    int on, off;
-    if (pca9685PWMReadSingleOff(0, mm)!=0) return -1;
-    printf("Beginning : %02X, %02X\n", mm[0], mm[1]);
-    mm[0] = 0x199 & 0x0FFF;
-    mm[1] = 0x4CC & 0x0FFF;
-
-    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
-	mm[i] = 0x190 + i;
-    }
-
-    pca9685PWMWriteMultiOff(pin, mm, 10);
-
-    pca9685PWMReadMulti(pin, data, sizeof(pin)/sizeof(pin[0]));
-
-    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
-	printf("%dth Data : %03X, %03X\n", i, data[i][0], data[i][1]);
-	data[i][0] = 0x4CC + i*2;
-    }
-
-    pca9685PWMWriteMulti(pin, data, 5);
-
-    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
-        printf("%dth Data : %03X, %03X\n", i, data[i][0], data[i][1]);
-    }
+    int i, ret;
+    if ( (ret=init_all()) !=0) return ret;
 
     return 0;
 }
