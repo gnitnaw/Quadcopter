@@ -17,63 +17,35 @@ extern void pca9685PWMWriteMultiOff(short pin, int *data, int num); // if pin = 
 */
 int main(void) {
 
-    int i;
+    int i, data[5][2], mm[10];
+    int pin[] = {0,1,2,3,4,5,6,7,8,9};
     if (init_all()!=0) return ERROR_INIT;
     PCA9685PW_init(1);
-    bcm2835_set_debug(0);
 
     int on, off;
-    if (pca9685PWMReadSingle(0, &on, &off)!=0) return -1;
-    printf("Beginning : %02X, %02X\n", on, off);
-    on = 0x199 & 0x0FFF;
-    off = 0x4CC & 0x0FFF;
-    pca9685PWMWriteSingle(0, on++, off++);
-    pca9685PWMWriteSingle(1, on++, off++);
-    pca9685PWMWriteSingle(4, on++, off++);
-    pca9685PWMWriteSingle(5, on++, off++);
-    pca9685PWMWriteSingle(8, on++, off++);
-    pca9685PWMWriteSingleOff(9, off);
+    if (pca9685PWMReadSingleOff(0, mm)!=0) return -1;
+    printf("Beginning : %02X, %02X\n", mm[0], mm[1]);
+    mm[0] = 0x199 & 0x0FFF;
+    mm[1] = 0x4CC & 0x0FFF;
 
-    int data[5];
-    data[0] = 0x199 & 0x0FFF;
-    data[1] = 0x200 & 0x0FFF;
-    data[2] = 0x201 & 0x0FFF;
-    data[3] = 0x202 & 0x0FFF;
-    data[4] = 0x203 & 0x0FFF;
-
-
-//    pca9685PWMWriteMultiOff(0, data, 5);
-
-    for (i=0; i<5; ++i) data[i] = 0;
-
-    pca9685PWMReadMultiOff(0, data, 5);
-
-    for (i=0; i<5; ++i) {
-	printf("Data : %03X\n", data[i]);
+    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
+	mm[i] = 0x190 + i;
     }
 
-    pca9685PWMWriteSingle(1, on+1, off+1);
-    puts("Ohlala!");
-    pca9685PWMWriteSingle(4, on, off);
+    pca9685PWMWriteMultiOff(pin, mm, 10);
 
-    pca9685PWMReadMultiOff(0, data, 5);
+    pca9685PWMReadMulti(pin, data, sizeof(pin)/sizeof(pin[0]));
 
-    for (i=0; i<5; ++i) {
-        printf("Data : %03X\n", data[i]);
+    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
+	printf("%dth Data : %03X, %03X\n", i, data[i][0], data[i][1]);
+	data[i][0] = 0x4CC + i*2;
     }
 
-/*
-    on = 0 & 0x0FFF;
-    off = 0 & 0x0FFF;
+    pca9685PWMWriteMulti(pin, data, 5);
 
-    while (1) {
-	pca9685PWMWriteSingle(0, on, off);;
-	off += 10;
-	off &= 0x0FFF;
-	usleep(100000);
+    for (i=0; i<sizeof(pin)/sizeof(pin[0]); ++i) {
+        printf("%dth Data : %03X, %03X\n", i, data[i][0], data[i][1]);
     }
-*/
-    if (pca9685PWMReadSingleOff(0, &off)!=0) return -1;
-    printf("After : %03X\n", off);
+
     return 0;
 }
