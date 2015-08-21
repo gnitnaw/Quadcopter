@@ -7,11 +7,12 @@
 #define	NI2CITEM	5
 #define LINESIZE        80
 
-extern void ADXL345_init(int i);
-extern void L3G4200D_init(int i);
-extern void HMC5883L_init(int i);
-extern void BMP085_init(int i);
-extern void PCA9685PW_init(int i);
+//extern void ADXL345_init(int i);
+//extern void L3G4200D_init(int i);
+//extern void HMC5883L_init(int i);
+//extern void BMP085_init(int i);
+//extern void PCA9685PW_init(int i);
+
 enum {
     ADXL345,
     L3G4200D,

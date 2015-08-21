@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <math.h>
 #include <string.h>
 #include <bcm2835.h>
@@ -8,7 +9,8 @@
 
 #define	OSRS		3
 #define P0              101325
-#define	ADXL345_UNIT	0.0392266	// Unit of ADXL345 is 4mg
+//#define	ADXL345_UNIT	0.0392266	// Unit of ADXL345 is 4mg
+#define ADXL345_UNIT    0.004       // Unit of ADXL345 is 4mg
 #define L3G4200D_UNIT	0.00875		// Unit of L3G4200D when range = 250 dps
 
 extern int ADXL345_RATE;
@@ -34,7 +36,7 @@ static struct BMP085_Parameters Para_BMP085;
 static char regaddr[2], databuf[22];
 volatile static short accl[3], gyro[3];
 volatile static long UP, UT;
-
+static short tmpMag;
 void exchange(char *buf, int len) {
     int i;
     char tmp;
@@ -82,7 +84,7 @@ void ADXL345_init(int i) {
             case 3200 :
                 regaddr[1] = 0x0F;
                 break;
-	    default : 
+	    default :
 		regaddr[1] = 0x0C;
 	}
         bcm2835_i2c_write(regaddr,2);
@@ -106,7 +108,7 @@ int ADXL345_getRawValue(void) {
     return 0;
 }
 
-int ADXL345_getRealData(double* acceleration) {
+int ADXL345_getRealData(float* acceleration) {
     int i;
     if (ADXL345_getRawValue()!=0) return ERROR_ADXL345_IO;
     for (i=0; i<3; ++i) {
@@ -141,8 +143,7 @@ void L3G4200D_init(int i) {
 	    default:
 		regaddr[1] = 0x8F;
 	}
-
-	if (L3G4200D_RATE == 200) regaddr[1] = 0x4F;
+        bcm2835_i2c_write(regaddr,2);
 
 	regaddr[0] = L3G4200D_CTRL_REG2;		// Filter related
 	regaddr[1] = 0x00;
@@ -168,10 +169,11 @@ void L3G4200D_init(int i) {
 	}
         bcm2835_i2c_write(regaddr,2);
 
+/*
 	regaddr[0] = L3G4200D_CTRL_REG5;                // FIFO related
         regaddr[1] = 0x00;
         bcm2835_i2c_write(regaddr,2);
-
+*/
     }
 
 }
@@ -191,7 +193,7 @@ int L3G4200D_getRawValue(void) {
 
 }
 
-int L3G4200D_getRealData(double* angVel) {
+int L3G4200D_getRealData(float* angVel) {
     int i;
     if (L3G4200D_getRawValue()!=0) return ERROR_L3G4200D_IO;
 
@@ -205,6 +207,36 @@ int L3G4200D_getRealData(double* angVel) {
 
 }
 
+void HMC5883L_selftest(void) {
+
+    short mag[3];
+    int i;
+    regaddr[0] = HMC5883L_CONF_REG_A;               // No. of Sampling and data rate
+    regaddr[1] = 0x71;
+    bcm2835_i2c_write(regaddr,2);
+
+    regaddr[0] = HMC5883L_CONF_REG_B;               // No. of Sampling and data rate
+    regaddr[1] = 0xA0;
+    bcm2835_i2c_write(regaddr,2);
+
+    regaddr[0] = HMC5883L_MODE_REG;
+    regaddr[1] = 0x00;
+    bcm2835_i2c_write(regaddr,2);
+
+    for (i=0; i<10; ++i) {
+    	if (HMC5883L_getRawValue(mag)!=0) {
+	    printf("Test error! \n");
+    	} else {
+	    printf("%d\t%d\t%d\n", mag[0], mag[1], mag[2]);
+	}
+	usleep(67000);
+    }
+
+    regaddr[0] = HMC5883L_CONF_REG_A;               // No. of Sampling and data rate
+    regaddr[1] = 0x70;
+    bcm2835_i2c_write(regaddr,2);
+
+}
 void HMC5883L_init(int i) {
     if (i != 0 && i != 1) {
         puts("MUST BE 0 or 1 !");
@@ -216,6 +248,7 @@ void HMC5883L_init(int i) {
     if (i==1) {
         regaddr[0] = HMC5883L_CONF_REG_A;		// No. of Sampling and data rate
         regaddr[1] = 0x60;
+//	regaddr[1] = 0x00;				// No average
 	switch (HMC5883L_RATE) {
 	    case 0 :
 		regaddr[1] += 0x00;
@@ -246,6 +279,11 @@ void HMC5883L_init(int i) {
         regaddr[0] = HMC5883L_CONF_REG_B;		// Range
         regaddr[1] = 0x20;				// +- 1.3 Ga
         bcm2835_i2c_write(regaddr,2);
+
+	regaddr[0] = HMC5883L_MODE_REG;
+//	regaddr[1] = 0x00; 				// continue mode
+	regaddr[1] = 0x01;				// Single measurement mode
+	bcm2835_i2c_write(regaddr,2);
     }
 
 }
@@ -257,7 +295,18 @@ int HMC5883L_getRawValue(short* mag) {
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(buf, 6) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
     exchange(buf, 6);
+    tmpMag = mag[2];
+    mag[2] = mag[1];
+    mag[1] = tmpMag;
     return 0;
+}
+
+int HMC5883L_dataReady(void) {
+    regaddr[0] = HMC5883L_STAT_REG;
+    bcm2835_i2c_write(regaddr, 1);
+    if (bcm2835_i2c_read(regaddr, 1) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
+    if (regaddr[0]&1) return 1;
+    else return 0;
 }
 
 void BMP085_init(int i) {
@@ -280,9 +329,9 @@ void BMP085_init(int i) {
 
         exchange(buf, 22);
 
-        printf("ACN : %d\t%d\t%d\t", Para_BMP085.AC1, Para_BMP085.AC2, Para_BMP085.AC3);
-        printf("%d\t%d\t%d\n", Para_BMP085.AC4, Para_BMP085.AC5, Para_BMP085.AC6);
-        printf("B and M : %d\t%d\t%d\t%d\t%d\n", Para_BMP085.B1, Para_BMP085.B2, Para_BMP085.MB, Para_BMP085.MC, Para_BMP085.MD);
+//        printf("ACN : %d\t%d\t%d\t", Para_BMP085.AC1, Para_BMP085.AC2, Para_BMP085.AC3);
+//        printf("%d\t%d\t%d\n", Para_BMP085.AC4, Para_BMP085.AC5, Para_BMP085.AC6);
+//        printf("B and M : %d\t%d\t%d\t%d\t%d\n", Para_BMP085.B1, Para_BMP085.B2, Para_BMP085.MB, Para_BMP085.MC, Para_BMP085.MD);
 
     }
 }
@@ -325,7 +374,7 @@ int BMP085_getRawPressure(void) {
     return 0;
 }
 
-int BMP085_getRealData(double *RTD, long *RP, double *altitude) {
+int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
     BMP085_Trigger_UTemp();
     if (BMP085_getRawTemp() !=0 ) return ERROR_BMP085_IO;
     BMP085_Trigger_UPressure();
@@ -361,7 +410,7 @@ int BMP085_getRealData(double *RTD, long *RP, double *altitude) {
     return 0;
 }
 
-int getAccGyro(double *accl, double *gyro) {
+int getAccGyro(float *accl, float *gyro) {
     if (ADXL345_getRealData(accl)!=0) return ERROR_ADXL345_IO;
     if (L3G4200D_getRealData(gyro)!=0) return ERROR_L3G4200D_IO;
 
