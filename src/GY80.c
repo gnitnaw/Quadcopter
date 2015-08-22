@@ -12,11 +12,15 @@
 //#define	ADXL345_UNIT	0.0392266	// Unit of ADXL345 is 4mg
 #define ADXL345_UNIT    0.004       // Unit of ADXL345 is 4mg
 #define L3G4200D_UNIT	0.00875		// Unit of L3G4200D when range = 250 dps
+#define DEG_TO_RAD	(M_PI/180)
 
 extern int ADXL345_RATE;
 extern int L3G4200D_RATE;
 extern int L3G4200D_RANGE;
 extern int HMC5883L_RATE;
+
+extern double mag_offset[3];
+extern double mag_gain[3];
 
 struct BMP085_Parameters {
     short AC1;
@@ -34,9 +38,11 @@ struct BMP085_Parameters {
 
 static struct BMP085_Parameters Para_BMP085;
 static char regaddr[2], databuf[22];
-volatile static short accl[3], gyro[3];
+volatile static short accl[3], gyro[3], mag[3];
+static double mag_real[3];
 volatile static long UP, UT;
 static short tmpMag;
+
 void exchange(char *buf, int len) {
     int i;
     char tmp;
@@ -198,7 +204,7 @@ int L3G4200D_getRealData(float* angVel) {
     if (L3G4200D_getRawValue()!=0) return ERROR_L3G4200D_IO;
 
     for (i=0; i<3; ++i) {
-	angVel[i] = gyro[i] * L3G4200D_UNIT;
+	angVel[i] = gyro[i] * L3G4200D_UNIT * DEG_TO_RAD;
 	if (L3G4200D_RANGE == 500) angVel[i] *= 2;
 	else if (L3G4200D_RANGE == 2000) angVel[i] *= 8;
     }
@@ -281,23 +287,31 @@ void HMC5883L_init(int i) {
         bcm2835_i2c_write(regaddr,2);
 
 	regaddr[0] = HMC5883L_MODE_REG;
-//	regaddr[1] = 0x00; 				// continue mode
-	regaddr[1] = 0x01;				// Single measurement mode
+	regaddr[1] = 0x00; 				// continue mode
+//	regaddr[1] = 0x01;				// Single measurement mode
 	bcm2835_i2c_write(regaddr,2);
     }
 
 }
 
-int HMC5883L_getRawValue(short* mag) {
-    char *buf = (char*) mag;
+int HMC5883L_getRawValue(void) {
     HMC5883L_init(0);
     regaddr[0] = HMC5883L_DATA_X_MSB;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read(buf, 6) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
-    exchange(buf, 6);
+    if (bcm2835_i2c_read((char*) mag, 6) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
+    exchange((char*) mag, 6);
     tmpMag = mag[2];
     mag[2] = mag[1];
     mag[1] = tmpMag;
+    return 0;
+}
+
+int HMC5883L_getAngle(double* angle) {	// return rad
+    int j;
+    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
+    for (j=0; j<3; ++j) mag_real[j] = mag_gain[j] *(mag[j] - mag_offset[j]);
+//    printf("%f\t%f\t%f\n", mag_real[0], mag_real[1], mag_real[2]);
+    *angle = acos(mag_real[0]/sqrt(pow(mag_real[0],2) + pow(mag_real[1],2)));
     return 0;
 }
 
