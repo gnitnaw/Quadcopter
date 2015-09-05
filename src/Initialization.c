@@ -21,15 +21,11 @@ enum {
     PCA9685PW
 };
 
-int checkI2CDevice(void);
-
 int init_all(void) {
     int ret;
     if (!bcm2835_init()) return ERROR_BCM2835_INIT;
     bcm2835_i2c_begin();
-    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);		// 400 kHz
-
-    if ((ret = checkI2CDevice())!=0) return ret;
+    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);         // 400 kHz
 
     ADXL345_init(1);
     L3G4200D_init(1);
@@ -40,6 +36,7 @@ int init_all(void) {
     return 0;
 }
 
+/*
 int checkI2CDevice(void) {
     char s[LINESIZE];
     char check[] = "0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f";
@@ -90,3 +87,5 @@ int checkI2CDevice(void) {
 
     return 0;
 }
+
+*/

@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,14 +14,16 @@
 #define ADXL345_UNIT    0.004       // Unit of ADXL345 is 4mg
 #define L3G4200D_UNIT	0.00875		// Unit of L3G4200D when range = 250 dps
 #define DEG_TO_RAD	(M_PI/180)
+#define HMC5883L_RESOLUTION	0.92
+//#define I2C_DEBUG
 
 extern int ADXL345_RATE;
 extern int L3G4200D_RATE;
 extern int L3G4200D_RANGE;
 extern int HMC5883L_RATE;
 
-extern double mag_offset[3];
-extern double mag_gain[3];
+extern float mag_offset[3];
+extern float mag_gain[3];
 
 struct BMP085_Parameters {
     short AC1;
@@ -37,11 +40,12 @@ struct BMP085_Parameters {
 };
 
 static struct BMP085_Parameters Para_BMP085;
-static char regaddr[2], databuf[22];
+static char regaddr[2], databuf[3];
 volatile static short accl[3], gyro[3], mag[3];
-static double mag_real[3];
+static float mag_real[3];
 volatile static long UP, UT;
 static short tmpMag;
+static int result;
 
 void exchange(char *buf, int len) {
     int i;
@@ -146,6 +150,9 @@ void L3G4200D_init(int i) {
 	    case 400:
 		regaddr[1] = 0x8F;
 		break;
+            case 800:
+                regaddr[1] = 0xCF;
+                break;
 	    default:
 		regaddr[1] = 0x8F;
 	}
@@ -175,11 +182,9 @@ void L3G4200D_init(int i) {
 	}
         bcm2835_i2c_write(regaddr,2);
 
-/*
 	regaddr[0] = L3G4200D_CTRL_REG5;                // FIFO related
         regaddr[1] = 0x00;
         bcm2835_i2c_write(regaddr,2);
-*/
     }
 
 }
@@ -188,15 +193,14 @@ int L3G4200D_getRawValue(void) {
     int i ;
     char *buf = (char*) gyro;
     L3G4200D_init(0);
-
+    regaddr[0] = L3G4200D_OUT_X_L;
     for (i=0; i<6; ++i) {
-        regaddr[0] = L3G4200D_OUT_X_L + i;
         bcm2835_i2c_write(regaddr, 1);
         if (bcm2835_i2c_read(&buf[i], 1) != BCM2835_I2C_REASON_OK) return ERROR_L3G4200D_IO;
+
+	++regaddr[0];
     }
-
     return 0;
-
 }
 
 int L3G4200D_getRealData(float* angVel) {
@@ -243,6 +247,14 @@ void HMC5883L_selftest(void) {
     bcm2835_i2c_write(regaddr,2);
 
 }
+
+void HMC5883L_singleMeasurement(void) {
+    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
+    regaddr[0] = HMC5883L_MODE_REG;
+    regaddr[1] = 0x01;                              // Single measurement mode
+    bcm2835_i2c_write(regaddr,2);
+}
+
 void HMC5883L_init(int i) {
     if (i != 0 && i != 1) {
         puts("MUST BE 0 or 1 !");
@@ -252,6 +264,12 @@ void HMC5883L_init(int i) {
     bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
 
     if (i==1) {
+
+        regaddr[0] = HMC5883L_MODE_REG;
+        regaddr[1] = 0x00;                              // continue mode
+//        regaddr[1] = 0x01;                              // Single measurement mode
+        bcm2835_i2c_write(regaddr,2);
+
         regaddr[0] = HMC5883L_CONF_REG_A;		// No. of Sampling and data rate
         regaddr[1] = 0x60;
 //	regaddr[1] = 0x00;				// No average
@@ -286,10 +304,6 @@ void HMC5883L_init(int i) {
         regaddr[1] = 0x20;				// +- 1.3 Ga
         bcm2835_i2c_write(regaddr,2);
 
-	regaddr[0] = HMC5883L_MODE_REG;
-	regaddr[1] = 0x00; 				// continue mode
-//	regaddr[1] = 0x01;				// Single measurement mode
-	bcm2835_i2c_write(regaddr,2);
     }
 
 }
@@ -303,6 +317,11 @@ int HMC5883L_getRawValue(void) {
     tmpMag = mag[2];
     mag[2] = mag[1];
     mag[1] = tmpMag;
+
+#ifdef I2C_DEBUG
+    printf("MEG: %d\t%d\t%d\n", mag[0], mag[1], mag[2]);
+#endif
+
     return 0;
 }
 
@@ -311,17 +330,40 @@ int HMC5883L_getAngle(double* angle) {	// return rad
     if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
     for (j=0; j<3; ++j) mag_real[j] = mag_gain[j] *(mag[j] - mag_offset[j]);
 //    printf("%f\t%f\t%f\n", mag_real[0], mag_real[1], mag_real[2]);
-    *angle = acos(mag_real[0]/sqrt(pow(mag_real[0],2) + pow(mag_real[1],2)));
+    *angle = acos(mag_real[1]/sqrt(pow(mag_real[0],2) + pow(mag_real[1],2)));
+    return 0;
+}
+
+int HMC5883L_getRealData(float* magn) {
+    int i;
+    HMC5883L_singleMeasurement();
+    //usleep(6000);
+    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
+
+    for (i=0; i<3; ++i) magn[i] = mag_gain[i] *(mag[i] - mag_offset[i]) * HMC5883L_RESOLUTION;
+    return 0;
+
+}
+
+int HMC5883L_getRealData_Direct(float* magn) {
+    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
+    int i;
+    //usleep(6000);
+    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
+
+    for (i=0; i<3; ++i) magn[i] = mag_gain[i] *(mag[i] - mag_offset[i]) * HMC5883L_RESOLUTION;
     return 0;
 }
 
 int HMC5883L_dataReady(void) {
+    HMC5883L_init(0);
     regaddr[0] = HMC5883L_STAT_REG;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(regaddr, 1) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
     if (regaddr[0]&1) return 1;
     else return 0;
 }
+
 
 void BMP085_init(int i) {
     if (i != 0 && i != 1) {
@@ -371,15 +413,17 @@ void BMP085_Trigger_UPressure(void) {
 }
 
 int BMP085_getRawTemp(void) {
+    BMP085_init(0);
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(databuf, 2) != BCM2835_I2C_REASON_OK) return ERROR_BMP085_IO;
     UT = (long)(databuf[0]<<8) + databuf[1];
     if (UT == 0) return -1;
-    else return 0;
+    return 0;
 }
 
 int BMP085_getRawPressure(void) {
+    BMP085_init(0);
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
     if (bcm2835_i2c_read(databuf, 3) != BCM2835_I2C_REASON_OK) return ERROR_BMP085_IO;
@@ -389,10 +433,11 @@ int BMP085_getRawPressure(void) {
 }
 
 int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
-    BMP085_Trigger_UTemp();
-    if (BMP085_getRawTemp() !=0 ) return ERROR_BMP085_IO;
-    BMP085_Trigger_UPressure();
-    if (BMP085_getRawPressure() != 0 ) return ERROR_BMP085_IO;
+//    BMP085_Trigger_UTemp();
+//    if (BMP085_getRawTemp() !=0 ) return ERROR_BMP085_IO;
+//    BMP085_Trigger_UPressure();
+//    if (BMP085_getRawPressure() != 0 ) return ERROR_BMP085_IO;
+//    printf("%ld, %ld\n", UT, UP);
 
     long X1 = ((UT - Para_BMP085.AC6) * Para_BMP085.AC5) >>15;
     long X2 = (Para_BMP085.MC <<11) / (X1+Para_BMP085.MD);
