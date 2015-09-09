@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <bcm2835.h>
-#include "I2CDevice.h"
+#include "I2CControl.h"
 #include "Error.h"
 
 #define	NI2CITEM	5

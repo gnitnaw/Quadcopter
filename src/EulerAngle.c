@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <math.h>
+#include "I2CControl.h"
+#include "Device.h"
 #define DEG_TO_RAD      (M_PI/180)
 #define RAD_TO_DEG	(180/M_PI)
 static float q[4];
@@ -60,6 +62,9 @@ void Quaternion_init(float* accl, float* magn) {
 //    for (i=0; i<4; ++i) printf("%f\t", q[i]);
     puts("");
     printf("Init : Roll = %f, Pitch = %f, Yaw = %f\n", EulerAngle[0]*RAD_TO_DEG, EulerAngle[1]*RAD_TO_DEG, EulerAngle[2]*RAD_TO_DEG);
+}
+
+void Quaternion_renew(Drone_Status *stat, float* deltaT) {
 }
 
 void Quaternion_renew(float* accl_est, float* gyro_est, float* magn_est, float* deltaT, float* Euler) {

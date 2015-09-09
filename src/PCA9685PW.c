@@ -2,7 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <bcm2835.h>
-#include "I2CDevice.h"
+#include "I2CControl.h"
 #include "PCA9685PW.h"
 
 extern int PCA9685PW_FREQ;

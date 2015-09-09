@@ -1,4 +1,4 @@
-#include "I2CDevice.h"
+#include "I2CControl.h"
 
 // Address for ADXL345
 #define ADXL345_DEVID           0x00

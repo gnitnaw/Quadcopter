@@ -1,7 +1,139 @@
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <gsl/gsl_statistics.h>
+#include <fgsl/gsl_statistics.h>
+#include "I2CControl.h"
 #define N_SAMPLE_CALIBRATION	2000
+#define NUM_CALI_THREADS 3
+extern int Renew_acclgyro(I2CVariables *i2c_var);
+extern int Renew_magn(I2CVariables *i2c_var);
+extern int Renew_baro(I2CVariables *i2c_var);
+
+static unsigned int thread_count;
+
+void Calibration_getSD_singlethread(void *cal) {
+    int i, j, nItem, nSample ;
+    volatile int ret;
+    float* var;
+    int (*f)(I2CVariables *) = 0;
+    I2CCaliThread* i2c_caliThread = (I2CCaliThread*) cal;
+    if (i2c_caliThread->c == 'A') {
+        f = Renew_acclgyro;
+	var = (float*) &i2c_caliThread->i2c_var->accl;
+	nItem = 6;
+	nSample = N_SAMPLE_CALIBRATION;
+    } else if (i2c_caliThread->c == 'M') {
+        f = Renew_magn;
+	var = (float*) &i2c_caliThread->i2c_var->magn;
+	nItem = 3;
+	nSample = N_SAMPLE_CALIBRATION / 2;
+    } else if (i2c_caliThread->c == 'B') {
+        f = Renew_baro;
+	var = (float*) &i2c_caliThread->i2c_var->altitude;
+	nItem = 1;
+	nSample = N_SAMPLE_CALIBRATION / 20;
+    }
+
+    float **var_cali = (float**) malloc(sizeof(float*)*nItem);
+    for (j=0; j<nItem; ++j) var_cali[j] = (float*) malloc(sizeof(float)*nSample);
+    for (i=0; i<nSample; ++i) {
+        if ( (ret= f(i2c_caliThread->i2c_var)) !=0 ) {
+	    printf("%dth IO error: %c, %d\n", i, i2c_caliThread->c, ret);
+	}
+
+        for (j=0; j<nItem; ++j) {
+            var_cali[j][i] = var[j];
+        }
+    }
+
+    for (j=0; j<nItem; ++j) {
+        i2c_caliThread->mean[j] = (float) gsl_stats_mean(&var_cali[j][0], 1, nSample);
+        i2c_caliThread->sd[j] = (float) gsl_stats_sd(&var_cali[j][0], 1, nSample);
+	free(var_cali[j]);
+    }
+
+    free(var_cali);
+    __sync_fetch_and_sub(&thread_count,1);
+
+}
+
+void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
+    I2CVariables i2c_var;
+    I2CVariables_init(&i2c_var);
+    thread_count = NUM_CALI_THREADS;
+    pthread_t thread_i2c[NUM_CALI_THREADS];
+    I2CCaliThread cali[NUM_CALI_THREADS];
+    pthread_mutex_init (&i2c_var.mutex, NULL);
+
+    cali[0].i2c_var = &i2c_var;
+    cali[0].mean = (float*) i2c_valCali->accl_offset;
+    cali[0].sd = (float*) i2c_valCali->accl_sd;
+    cali[0].c = 'A';
+    pthread_create(&thread_i2c[0], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[0]);
+//    pthread_join(thread_i2c[0],NULL);
+
+    cali[1].i2c_var = &i2c_var;
+    cali[1].mean = (float*) i2c_valCali->magn_offset;
+    cali[1].sd = (float*) i2c_valCali->magn_sd;
+    cali[1].c = 'M';
+    pthread_create(&thread_i2c[1], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[1]);
+
+    cali[2].i2c_var = &i2c_var;
+    cali[2].mean = (float*) &i2c_valCali->altitude_offset;
+    cali[2].sd = (float*) &i2c_valCali->altitude_sd;
+    cali[2].c = 'B';
+    pthread_create(&thread_i2c[2], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[2]);
+//    pthread_join(thread_i2c[2],NULL);
+
+    do {
+	__sync_synchronize();
+	usleep(1000000);
+    } while (thread_count);
+
+//    i2c_valCali->accl_abs = 	sqrtf(i2c_valCali->accl_offset[0]*i2c_valCali->accl_offset[0]
+//				+i2c_valCali->accl_offset[1]*i2c_valCali->accl_offset[1]
+//				+i2c_valCali->accl_offset[2]*i2c_valCali->accl_offset[2]);
+
+    i2c_valCali->accl_abs = Common_GetNorm(i2c_valCali->accl_offset, 3);
+    i2c_valCali->magn_abs = Common_GetNorm(i2c_valCali->magn_offset, 3);
+
+    I2CVariables_end(&i2c_var);
+}
+
+int Calibration_HMC5883L_singleThread(float* mag_offset, float* mag_gain) {
+    I2CVariables i2c_var;
+    int i, j, ret;
+    I2CVariables_init(&i2c_var);
+
+    float max[3], min[3];
+    for (i=0; i<3; ++i) {
+	max[i] = 0.0;
+	min[i] = 0.0;
+    }
+    for (i=0; i<N_SAMPLE_CALIBRATION; ++i) {
+        if ( (ret=Renew_magn_Origin(&i2c_var))!=0 ) return ret;
+        printf("%f, %f, %f\n", i2c_var.magn[0], i2c_var.magn[1], i2c_var.magn[2]);
+        for (j=0; j<3; ++j) {
+	    if (i2c_var.magn[j] > max[j]) max[j] = i2c_var.magn[j];
+	    else if (i2c_var.magn[j] < min[j]) min[j] = i2c_var.magn[j];
+	}
+	usleep(100000);
+    }
+
+    for (i=0; i<3; ++i) {
+        mag_offset[i] = (max[i]+min[i])/2 ;
+        printf("Max = %f, min = %f\n", max[i], min[i]);
+        if (i==0) mag_gain[i] = 1.0;
+        else {
+            mag_gain[i] = (max[0]-min[0])/(max[i]-min[i]);
+        }
+    }
+
+    I2CVariables_end(&i2c_var);
+    return 0;
+
+}
 
 int Calibration_getSD(float* var, float* var_mean, float* var_sd, int (*f)(float*)) {
     int i, j, ret;

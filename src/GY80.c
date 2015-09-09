@@ -6,7 +6,7 @@
 #include <string.h>
 #include <bcm2835.h>
 #include "GY80.h"
-#include "Error.h"
+//#include "Error.h"
 
 #define	OSRS		3
 #define P0              101325
@@ -42,19 +42,18 @@ struct BMP085_Parameters {
 static struct BMP085_Parameters Para_BMP085;
 static char regaddr[2], databuf[3];
 volatile static short accl[3], gyro[3], mag[3];
-static float mag_real[3];
 volatile static long UP, UT;
 static short tmpMag;
-static int result;
+static int ret_acc, ret_gyr, ret_mag, ret_bar;
+static int iMag, iAcc, iGyr, ie;
 
 void exchange(char *buf, int len) {
-    int i;
     char tmp;
-    for (i=0; i<len; ++i) {
-        tmp = buf[i];
-        buf[i] = buf[i+1];
-        buf[i+1] = tmp;
-        ++i;
+    for (ie=0; ie<len; ++ie) {
+        tmp = buf[ie];
+        buf[ie] = buf[ie+1];
+        buf[ie+1] = tmp;
+        ++ie;
     }
 }
 
@@ -114,15 +113,14 @@ int ADXL345_getRawValue(void) {
     ADXL345_init(0);
     regaddr[0] = ADXL345_DATAX0;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*)accl, 6) != BCM2835_I2C_REASON_OK) return ERROR_ADXL345_IO;
+    if ( (ret_acc = bcm2835_i2c_read((char*)accl, 6)) != BCM2835_I2C_REASON_OK) return ret_acc;
     return 0;
 }
 
 int ADXL345_getRealData(float* acceleration) {
-    int i;
-    if (ADXL345_getRawValue()!=0) return ERROR_ADXL345_IO;
-    for (i=0; i<3; ++i) {
-	acceleration[i] = accl[i] * ADXL345_UNIT;
+    if ( (ret_acc=ADXL345_getRawValue()) !=0) return ret_acc;
+    for (iAcc=0; iAcc<3; ++iAcc) {
+	acceleration[iAcc] = accl[iAcc] * ADXL345_UNIT;
     }
     return 0;
 }
@@ -190,13 +188,12 @@ void L3G4200D_init(int i) {
 }
 
 int L3G4200D_getRawValue(void) {
-    int i ;
     char *buf = (char*) gyro;
     L3G4200D_init(0);
     regaddr[0] = L3G4200D_OUT_X_L;
-    for (i=0; i<6; ++i) {
+    for (iGyr=0; iGyr<6; ++iGyr) {
         bcm2835_i2c_write(regaddr, 1);
-        if (bcm2835_i2c_read(&buf[i], 1) != BCM2835_I2C_REASON_OK) return ERROR_L3G4200D_IO;
+        if ( (ret_gyr=bcm2835_i2c_read(&buf[iGyr], 1)) != BCM2835_I2C_REASON_OK) return ret_gyr;
 
 	++regaddr[0];
     }
@@ -204,13 +201,12 @@ int L3G4200D_getRawValue(void) {
 }
 
 int L3G4200D_getRealData(float* angVel) {
-    int i;
-    if (L3G4200D_getRawValue()!=0) return ERROR_L3G4200D_IO;
+    if ( (ret_gyr=L3G4200D_getRawValue()) !=0) return ret_gyr;
 
-    for (i=0; i<3; ++i) {
-	angVel[i] = gyro[i] * L3G4200D_UNIT * DEG_TO_RAD;
-	if (L3G4200D_RANGE == 500) angVel[i] *= 2;
-	else if (L3G4200D_RANGE == 2000) angVel[i] *= 8;
+    for (iGyr=0; iGyr<3; ++iGyr) {
+	angVel[iGyr] = gyro[iGyr] * L3G4200D_UNIT * DEG_TO_RAD;
+	if (L3G4200D_RANGE == 500) angVel[iGyr] *= 2;
+	else if (L3G4200D_RANGE == 2000) angVel[iGyr] *= 8;
     }
 
     return 0;
@@ -218,9 +214,7 @@ int L3G4200D_getRealData(float* angVel) {
 }
 
 void HMC5883L_selftest(void) {
-
     short mag[3];
-    int i;
     regaddr[0] = HMC5883L_CONF_REG_A;               // No. of Sampling and data rate
     regaddr[1] = 0x71;
     bcm2835_i2c_write(regaddr,2);
@@ -233,7 +227,7 @@ void HMC5883L_selftest(void) {
     regaddr[1] = 0x00;
     bcm2835_i2c_write(regaddr,2);
 
-    for (i=0; i<10; ++i) {
+    for (iMag=0; iMag<10; ++iMag) {
     	if (HMC5883L_getRawValue(mag)!=0) {
 	    printf("Test error! \n");
     	} else {
@@ -312,46 +306,44 @@ int HMC5883L_getRawValue(void) {
     HMC5883L_init(0);
     regaddr[0] = HMC5883L_DATA_X_MSB;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read((char*) mag, 6) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
+    if ( (ret_mag=bcm2835_i2c_read((char*) mag, 6)) != BCM2835_I2C_REASON_OK) return ret_mag;
     exchange((char*) mag, 6);
     tmpMag = mag[2];
     mag[2] = mag[1];
     mag[1] = tmpMag;
-
+/*
 #ifdef I2C_DEBUG
     printf("MEG: %d\t%d\t%d\n", mag[0], mag[1], mag[2]);
 #endif
-
-    return 0;
-}
-
-int HMC5883L_getAngle(double* angle) {	// return rad
-    int j;
-    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
-    for (j=0; j<3; ++j) mag_real[j] = mag_gain[j] *(mag[j] - mag_offset[j]);
-//    printf("%f\t%f\t%f\n", mag_real[0], mag_real[1], mag_real[2]);
-    *angle = acos(mag_real[1]/sqrt(pow(mag_real[0],2) + pow(mag_real[1],2)));
+*/
     return 0;
 }
 
 int HMC5883L_getRealData(float* magn) {
-    int i;
     HMC5883L_singleMeasurement();
     //usleep(6000);
-    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
+    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
 
-    for (i=0; i<3; ++i) magn[i] = mag_gain[i] *(mag[i] - mag_offset[i]) * HMC5883L_RESOLUTION;
+    for (iMag=0; iMag<3; ++iMag) magn[iMag] = mag_gain[iMag] *(mag[iMag] - mag_offset[iMag]) * HMC5883L_RESOLUTION;
     return 0;
 
 }
 
 int HMC5883L_getRealData_Direct(float* magn) {
     bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
-    int i;
     //usleep(6000);
-    if (HMC5883L_getRawValue()!=0) return ERROR_HMC5883L_IO;
+    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
 
-    for (i=0; i<3; ++i) magn[i] = mag_gain[i] *(mag[i] - mag_offset[i]) * HMC5883L_RESOLUTION;
+    for (iMag=0; iMag<3; ++iMag) magn[iMag] = mag_gain[iMag] *(mag[iMag] - mag_offset[iMag]) * HMC5883L_RESOLUTION;
+    return 0;
+}
+
+int HMC5883L_getOriginalData_Direct(float* magn) {
+    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
+    //usleep(6000);
+    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
+
+    for (iMag=0; iMag<3; ++iMag) magn[iMag] = (float) mag[iMag] * HMC5883L_RESOLUTION;
     return 0;
 }
 
@@ -359,9 +351,10 @@ int HMC5883L_dataReady(void) {
     HMC5883L_init(0);
     regaddr[0] = HMC5883L_STAT_REG;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read(regaddr, 1) != BCM2835_I2C_REASON_OK) return ERROR_HMC5883L_IO;
+    if ( (ret_mag=bcm2835_i2c_read(regaddr, 1)) != BCM2835_I2C_REASON_OK) return ret_mag;
     if (regaddr[0]&1) return 1;
-    else return 0;
+
+    return 0;
 }
 
 
@@ -416,9 +409,8 @@ int BMP085_getRawTemp(void) {
     BMP085_init(0);
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read(databuf, 2) != BCM2835_I2C_REASON_OK) return ERROR_BMP085_IO;
+    if ( (ret_bar=bcm2835_i2c_read(databuf, 2)) != BCM2835_I2C_REASON_OK) return ret_bar;
     UT = (long)(databuf[0]<<8) + databuf[1];
-    if (UT == 0) return -1;
     return 0;
 }
 
@@ -426,9 +418,8 @@ int BMP085_getRawPressure(void) {
     BMP085_init(0);
     regaddr[0] = 0xF6;
     bcm2835_i2c_write(regaddr, 1);
-    if (bcm2835_i2c_read(databuf, 3) != BCM2835_I2C_REASON_OK) return ERROR_BMP085_IO;
+    if ( (ret_bar=bcm2835_i2c_read(databuf, 3)) != BCM2835_I2C_REASON_OK) return ret_bar;
     UP = ((long)(databuf[0]<<16) + (long)(databuf[1]<<8) + databuf[2]) >> (8-OSRS);
-    if (UP == 0) return -1;
     return 0;
 }
 
@@ -470,8 +461,8 @@ int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
 }
 
 int getAccGyro(float *accl, float *gyro) {
-    if (ADXL345_getRealData(accl)!=0) return ERROR_ADXL345_IO;
-    if (L3G4200D_getRealData(gyro)!=0) return ERROR_L3G4200D_IO;
+    if ((ret_acc=ADXL345_getRealData(accl)) !=0) return ret_acc;
+    if ((ret_gyr=L3G4200D_getRealData(gyro)) !=0) return ret_gyr;
 
     return 0;
 }
