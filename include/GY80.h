@@ -1,5 +1,7 @@
-#include "I2CControl.h"
+#ifndef H_GY80
+#define H_GY80
 
+#include "I2CControl.h"
 // Address for ADXL345
 #define ADXL345_DEVID           0x00
 #define ADXL345_THRESH_TAP      0x1D
@@ -88,3 +90,4 @@
 #define BMP085_MC               0xBC
 #define BMP085_MD               0xBE
 
+#endif

@@ -64,8 +64,7 @@ void Quaternion_init(float* accl, float* magn) {
     printf("Init : Roll = %f, Pitch = %f, Yaw = %f\n", EulerAngle[0]*RAD_TO_DEG, EulerAngle[1]*RAD_TO_DEG, EulerAngle[2]*RAD_TO_DEG);
 }
 
-void Quaternion_renew(Drone_Status *stat, float* deltaT) {
-}
+//void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {}
 
 void Quaternion_renew(float* accl_est, float* gyro_est, float* magn_est, float* deltaT, float* Euler) {
 //    for (i=0; i<4; ++i) printf("%f\t", q[i]);

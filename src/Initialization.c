@@ -21,8 +21,7 @@ enum {
     PCA9685PW
 };
 
-int init_all(void) {
-    int ret;
+int init_all(I2CVariables *i2c_var) {
     if (!bcm2835_init()) return ERROR_BCM2835_INIT;
     bcm2835_i2c_begin();
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);         // 400 kHz
@@ -33,7 +32,13 @@ int init_all(void) {
     BMP085_init(1);
     PCA9685PW_init(1);
 
+    I2CVariables_init(i2c_var);
     return 0;
+}
+
+int end_all(I2CVariables *i2c_var) {
+    bcm2835_i2c_end();
+    return I2CVariables_end(i2c_var);
 }
 
 /*

@@ -32,6 +32,9 @@
 #define REAL float
 static int singular_float (const gsl_matrix_float * LU);
 
+int
+gsl_linalg_LU_svx_float (const gsl_matrix_float * LU, const gsl_permutation * p, gsl_vector_float * x);
+
 /* Factorise a general N x N matrix A into,
  *
  *   P A = L U

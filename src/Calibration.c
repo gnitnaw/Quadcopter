@@ -3,19 +3,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fgsl/gsl_statistics.h>
-#include "I2CControl.h"
+#include "Common.h"
+#include "Calibration.h"
 #define N_SAMPLE_CALIBRATION	2000
 #define NUM_CALI_THREADS 3
-extern int Renew_acclgyro(I2CVariables *i2c_var);
-extern int Renew_magn(I2CVariables *i2c_var);
-extern int Renew_baro(I2CVariables *i2c_var);
 
 static unsigned int thread_count;
 
 void Calibration_getSD_singlethread(void *cal) {
-    int i, j, nItem, nSample ;
+    int i, j, nItem=1, nSample=N_SAMPLE_CALIBRATION ;
     volatile int ret;
-    float* var;
+    float* var=0;
     int (*f)(I2CVariables *) = 0;
     I2CCaliThread* i2c_caliThread = (I2CCaliThread*) cal;
     if (i2c_caliThread->c == 'A') {
@@ -155,7 +153,7 @@ int Calibration_getSD(float* var, float* var_mean, float* var_sd, int (*f)(float
     return 0;
 
 }
-
+/*
 int Calibration_getSD_withK(float* var, float* var_mean, float* var_sd, int (*f)(float*), char c) {
     int i, j, ret;
     float var_cali[3][N_SAMPLE_CALIBRATION], var_est[3];
@@ -177,7 +175,7 @@ int Calibration_getSD_withK(float* var, float* var_mean, float* var_sd, int (*f)
     return 0;
 
 }
-
+*/
 /*
 int Calibration_getSD(float* accl, float* gyro, double* accl_mean, double* gyro_mean, double* accl_sd, double* gyro_sd) {
     int i, j, ret;
@@ -201,25 +199,4 @@ int Calibration_getSD(float* accl, float* gyro, double* accl_mean, double* gyro_
 }
 
 */
-int Calibration_HMC5883L(short* mag, float* mag_offset, float* mag_gain) {
-    int i, j, ret;
-    float mag_cali[3][N_SAMPLE_CALIBRATION], max[3], min[3];
-    for (i=0; i<N_SAMPLE_CALIBRATION; ++i) {
-	if ( (ret=HMC5883L_getRawValue(mag))!=0 ) return ret;
-	printf("%d, %d, %d\n", mag[0], mag[1], mag[2]);
-	for (j=0; j<3; ++j) mag_cali[j][i] = (float) mag[j];
-	usleep(6600);
-    }
 
-    for (i=0; i<3; ++i) {
-	gsl_stats_float_minmax (&min[i], &max[i], &mag_cali[i][0], 1, N_SAMPLE_CALIBRATION);
-	mag_offset[i] = (max[i]+min[i])/2 ;
-	printf("Max = %f, min = %f\n", max[i], min[i]);
-	if (i==0) mag_gain[i] = 1.0;
-	else {
-	    mag_gain[i] = (max[0]-min[0])/(max[i]-min[i]);
-	}
-    }
-
-    return 0;
-}

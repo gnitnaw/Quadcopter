@@ -17,8 +17,6 @@ int baseRegOff(int pin) {
     return PCA9685PW_LED0_OFF_L + pin * 4;
 }
 
-void PCA9685PW_PWMReset(void);
-
 void PCA9685PW_init(int i) {
     if (i != 0 && i != 1) {
         puts("MUST BE 0 or 1 !");
@@ -216,7 +214,7 @@ void pca9685PWMWriteMulti(int *pin, int data[][2], int num) { // if pin = 0, num
 }
 
 void pca9685PWMWriteMultiOff(int *pin, int *data, int num) { // if pin = 0, num = 3, data will be : off_0, off_1, off_2
-    int i,j;
+    int i;
 
     PCA9685PW_init(0);
 

@@ -213,35 +213,6 @@ int L3G4200D_getRealData(float* angVel) {
 
 }
 
-void HMC5883L_selftest(void) {
-    short mag[3];
-    regaddr[0] = HMC5883L_CONF_REG_A;               // No. of Sampling and data rate
-    regaddr[1] = 0x71;
-    bcm2835_i2c_write(regaddr,2);
-
-    regaddr[0] = HMC5883L_CONF_REG_B;               // No. of Sampling and data rate
-    regaddr[1] = 0xA0;
-    bcm2835_i2c_write(regaddr,2);
-
-    regaddr[0] = HMC5883L_MODE_REG;
-    regaddr[1] = 0x00;
-    bcm2835_i2c_write(regaddr,2);
-
-    for (iMag=0; iMag<10; ++iMag) {
-    	if (HMC5883L_getRawValue(mag)!=0) {
-	    printf("Test error! \n");
-    	} else {
-	    printf("%d\t%d\t%d\n", mag[0], mag[1], mag[2]);
-	}
-	usleep(67000);
-    }
-
-    regaddr[0] = HMC5883L_CONF_REG_A;               // No. of Sampling and data rate
-    regaddr[1] = 0x70;
-    bcm2835_i2c_write(regaddr,2);
-
-}
-
 void HMC5883L_singleMeasurement(void) {
     bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
     regaddr[0] = HMC5883L_MODE_REG;

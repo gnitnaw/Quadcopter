@@ -1,3 +1,6 @@
+#ifndef H_PCA9685PW
+#define H_PCA9685PW
+
 // Address for PCA9685PW
 #define PCA9685PW_MODE1			0x00
 #define PCA9685PW_MODE2			0x01
@@ -80,3 +83,4 @@
 #define PCA9685PW__SLEEP		0x10
 #define PCA9685PW__OUTDRV		0x04
 
+#endif
