@@ -46,13 +46,12 @@ int main(void) {
     struct timespec tp1, tp2;
     unsigned long startTime, procesTime;
     float deltaT = 2.5e-3;
-    float Eular[3];
     I2CVariables i2c_var;
     I2CVariblesCali i2c_cali;
 
     pthread_t t_magn, t_baro;
 
-    int i=0,j,ret;
+    int i=0,ret;
     if ( (ret=init_all(&i2c_var)) !=0) return ret;
 
     Calibration_getSD_multithread(&i2c_cali);
@@ -75,17 +74,21 @@ int main(void) {
     clock_gettime(CLOCK_REALTIME, &tp1);
     startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
 
-    for (i=0; i<10; ++i) {
+    for (i=0; i<100000; ++i) {
 	if ( (ret=Renew_acclgyro(&i2c_var))!=0 ) return ret;
 	clock_gettime(CLOCK_REALTIME, &tp2);
     	procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
 	deltaT = (float)procesTime/1000000000.0;
+	Data_Copy(&i2c_var, &stat);
+	Data_Renew(&stat, &deltaT);
+
 //	Quaternion_renew(accl, gyro_corr, magn, &deltaT, Eular);
 	//for (j=0; j<3; ++j) {}
 	if (i%500==0){
-//	    printf("Magn = : %f, %f, %f\t", magn[0], magn[1], magn[2]);
-//	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E\n", Eular[0], Eular[1], Eular[2], deltaT);
+	    printf("A = : %f, %f, %f, %f, 0x%X\t", stat.x[0], stat.x[1], stat.x[2], stat.altitude_corr, stat.status);
+	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E\n", stat.angle[0], stat.angle[1], stat.angle[2], deltaT);
 	}
+	usleep(2000);
 	tp1 = tp2;
 	startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
     }

@@ -432,8 +432,6 @@ int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
 }
 
 int getAccGyro(float *accl, float *gyro) {
-    if ((ret_acc=ADXL345_getRealData(accl)) !=0) return ret_acc;
-    if ((ret_gyr=L3G4200D_getRealData(gyro)) !=0) return ret_gyr;
-
+    if ((ret_acc=ADXL345_getRealData(accl)) !=0 || (ret_gyr=L3G4200D_getRealData(gyro)) !=0 ) return ((ret_gyr << 8)+ret_acc);
     return 0;
 }

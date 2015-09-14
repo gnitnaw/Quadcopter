@@ -2,8 +2,11 @@
 #include <math.h>
 #include "I2CControl.h"
 #include "Device.h"
+#include "Common.h"
 #define DEG_TO_RAD      (M_PI/180)
 #define RAD_TO_DEG	(180/M_PI)
+#define G_VALUE		9.79
+#define ACCL_UNIT	0.004
 static float q[4];
 static float half_dt;
 static float norm;
@@ -51,6 +54,18 @@ void Quaternion_From_EulerAngle(void) {
     q[3] = dCos[0] * dCos[1] * dSin[2] - dSin[0] * dSin[1] * dCos[2];
 }
 
+void Quaternion_From_Stat(Drone_Status *stat) {
+    float dCos[3], dSin[3];
+    for (i=0; i<3; ++i) {
+        dCos[i] = cos(stat->angle[i] * 0.5);
+        dSin[i] = sin(stat->angle[i] * 0.5);
+    }
+    q[0] = dCos[0] * dCos[1] * dCos[2] + dSin[0] * dSin[1] * dSin[2];
+    q[1] = dSin[0] * dCos[1] * dCos[2] - dCos[0] * dSin[1] * dSin[2];
+    q[2] = dCos[0] * dSin[1] * dCos[2] + dSin[0] * dCos[1] * dSin[2];
+    q[3] = dCos[0] * dCos[1] * dSin[2] - dSin[0] * dSin[1] * dCos[2];
+}
+
 void Quaternion_init(float* accl, float* magn) {
     float norm = sqrtf(accl[0]*accl[0]+accl[1]*accl[1]+accl[2]*accl[2]);
     EulerAngle[0] = atan2(accl[1], accl[2]) ; // roll
@@ -64,7 +79,66 @@ void Quaternion_init(float* accl, float* magn) {
     printf("Init : Roll = %f, Pitch = %f, Yaw = %f\n", EulerAngle[0]*RAD_TO_DEG, EulerAngle[1]*RAD_TO_DEG, EulerAngle[2]*RAD_TO_DEG);
 }
 
-//void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {}
+void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
+    half_dt = *deltaT/2;
+    // Part 1: verify if acc data can be used
+    if ( ( ((stat->status>>8)&1) & ((stat->status>>6)&1) ) ==0 ) {
+	if ( ((stat->status>>7)&1)==0 ) {
+            for (i=0; i<3; ++i) anorm[i] = stat->accl[i] / stat->acc_magnitude;
+    	    v[0] = 2*(q[1]*q[3] - q[0]*q[2]);
+    	    v[1] = 2*(q[0]*q[1] + q[2]*q[3]);
+    	    v[2] = pow(q[0],2) - pow(q[1],2) - pow(q[2],2) + pow(q[3],2);
+    	    e[0] = (anorm[1] * v[2] - anorm[2] * v[1]);
+    	    e[1] = (anorm[2] * v[0] - anorm[0] * v[2]);
+    	    e[2] = (anorm[0] * v[1] - anorm[1] * v[0]);
+	} else {
+	    for (i=0; i<3; ++i) e[i] = 0.0;
+	}
+    }
+    if ( ((stat->status>>10)&1)==0 ) {
+	for (i=0; i<3; ++i) mnorm[i] = stat->magn[i] / stat->mag_magnitude;
+    	w[0] = 2*b[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + 2*b[2]*(q[1]*q[3] - q[0]*q[2]);
+    	w[1] = 2*b[0]*(q[1]*q[2] - q[0]*q[3]) + 2*b[2]*(q[0]*q[1] + q[2]*q[3]);
+    	w[2] = 2*b[0]*(q[0]*q[2] + q[1]*q[3]) + 2*b[2]*(0.5 - q[1]*q[1] - q[2]*q[2]);
+    	e[0] += (mnorm[1]*w[2] - mnorm[2]*w[1]);
+    	e[1] += (mnorm[2]*w[0] - mnorm[0]*w[2]);
+    	e[2] += (mnorm[0]*w[1] - mnorm[1]*w[0]);
+    }
+
+    for (i=0; i<3; ++i) {
+        eInt[i] += e[i] * Ki;
+        stat->angVel[i] = stat->gyro_corr[i] + Kp * e[i] + eInt[i];
+    }
+
+    q[0] = q[0] - half_dt*(q[1]*stat->angVel[0] + q[2]*stat->angVel[1] + q[3]*stat->angVel[2]);
+    q[1] = q[1] + half_dt*(q[0]*stat->angVel[0] + q[2]*stat->angVel[2] - q[3]*stat->angVel[1]);
+    q[2] = q[2] + half_dt*(q[0]*stat->angVel[1] - q[1]*stat->angVel[2] + q[3]*stat->angVel[0]);
+    q[3] = q[3] + half_dt*(q[0]*stat->angVel[2] + q[1]*stat->angVel[1] - q[2]*stat->angVel[0]);
+
+    norm = Common_GetNorm(q, 4);
+
+    for (i=0; i<4; ++i) q[i] /= norm;
+
+    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
+    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
+    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
+
+    stat->accl_ref[0] = 2*( stat->accl[0]*(0.5-q[2]*q[2]-q[3]*q[3]) + stat->accl[1]*(q[1]*q[2]-q[0]*q[3]) + stat->accl[2]*(q[1]*q[3]+q[0]*q[2]) );
+    stat->accl_ref[1] = 2*( stat->accl[0]*(q[1]*q[2]+q[0]*q[3]) + stat->accl[1]*(0.5-q[1]*q[1]-q[3]*q[3]) + stat->accl[2]*(q[2]*q[3]-q[0]*q[1]) );
+    stat->accl_ref[2] = 2*( stat->accl[0]*(q[1]*q[3]-q[0]*q[2]) + stat->accl[1]*(q[2]*q[3]+q[0]*q[1]) + stat->accl[2]*(0.5-q[1]*q[1]-q[2]*q[2]) );
+
+    for (i=0; i<2; ++i) {
+	stat->a[i] = trunc(stat->accl_ref[i]/ACCL_UNIT) * ACCL_UNIT * G_VALUE;
+    }
+    stat->a[2] = trunc((stat->accl_ref[2]-stat->g_magnitude)/ACCL_UNIT) * ACCL_UNIT * G_VALUE;
+
+    for (i=0; i<3; ++i){
+	stat->v[i] += *deltaT * stat->a[i];
+	stat->x[i] += *deltaT * stat->v[i];
+    }
+
+    stat->x[2] = stat->x[2] * (1-Ki*10) + stat->altitude_corr * Ki*10;
+}
 
 void Quaternion_renew(float* accl_est, float* gyro_est, float* magn_est, float* deltaT, float* Euler) {
 //    for (i=0; i<4; ++i) printf("%f\t", q[i]);

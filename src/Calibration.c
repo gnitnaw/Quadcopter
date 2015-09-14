@@ -11,7 +11,7 @@
 static unsigned int thread_count;
 
 void Calibration_getSD_singlethread(void *cal) {
-    int i, j, nItem=1, nSample=N_SAMPLE_CALIBRATION ;
+    int i, j, nItem=1, nSample=N_SAMPLE_CALIBRATION, SD_Check=0;
     volatile int ret;
     float* var=0;
     int (*f)(I2CVariables *) = 0;
@@ -31,6 +31,7 @@ void Calibration_getSD_singlethread(void *cal) {
 	var = (float*) &i2c_caliThread->i2c_var->altitude;
 	nItem = 1;
 	nSample = N_SAMPLE_CALIBRATION / 20;
+	SD_Check = 1;
     }
 
     float **var_cali = (float**) malloc(sizeof(float*)*nItem);
@@ -43,6 +44,8 @@ void Calibration_getSD_singlethread(void *cal) {
         for (j=0; j<nItem; ++j) {
             var_cali[j][i] = var[j];
         }
+
+	if (ret!=0) --i;
     }
 
     for (j=0; j<nItem; ++j) {
@@ -52,8 +55,15 @@ void Calibration_getSD_singlethread(void *cal) {
     }
 
     free(var_cali);
-    __sync_fetch_and_sub(&thread_count,1);
 
+    if (SD_Check) {
+	if (i2c_caliThread->sd[0]/i2c_caliThread->mean[0] > 0.01) {
+	    puts("Need to do it again");
+	    Calibration_getSD_singlethread(cal);
+	    return;
+	}
+    }
+    __sync_fetch_and_sub(&thread_count,1);
 }
 
 void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
