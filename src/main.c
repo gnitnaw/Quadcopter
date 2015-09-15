@@ -74,7 +74,7 @@ int main(void) {
     clock_gettime(CLOCK_REALTIME, &tp1);
     startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
 
-    for (i=0; i<100000; ++i) {
+    for (i=0; i<10000; ++i) {
 	if ( (ret=Renew_acclgyro(&i2c_var))!=0 ) return ret;
 	clock_gettime(CLOCK_REALTIME, &tp2);
     	procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
@@ -84,7 +84,7 @@ int main(void) {
 
 //	Quaternion_renew(accl, gyro_corr, magn, &deltaT, Eular);
 	//for (j=0; j<3; ++j) {}
-	if (i%500==0){
+	if (i%100==0){
 	    printf("A = : %f, %f, %f, %f, 0x%X\t", stat.x[0], stat.x[1], stat.x[2], stat.altitude_corr, stat.status);
 	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E\n", stat.angle[0], stat.angle[1], stat.angle[2], deltaT);
 	}

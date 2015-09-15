@@ -133,8 +133,8 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
     stat->a[2] = trunc((stat->accl_ref[2]-stat->g_magnitude)/ACCL_UNIT) * ACCL_UNIT * G_VALUE;
 
     for (i=0; i<3; ++i){
-	stat->v[i] += *deltaT * stat->a[i];
-	stat->x[i] += *deltaT * stat->v[i];
+	stat->x[i] += *deltaT * stat->v[i] + 0.5 * stat->a[i] * stat->a[i];
+	stat->v[i] += *deltaT * 0.5 * stat->a[i];
     }
 
     stat->x[2] = stat->x[2] * (1-Ki*10) + stat->altitude_corr * Ki*10;
