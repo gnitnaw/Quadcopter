@@ -33,6 +33,13 @@ int init_all(I2CVariables *i2c_var) {
     PCA9685PW_init(1);
 
     I2CVariables_init(i2c_var);
+    int i;
+//    printf("Set PWM pins:");
+    for (i=0; i<4; ++i) {
+	i2c_var->PWM_pin[i] = i;
+//	printf("%d, ", i2c_var->PWM_pin[i]);
+    }
+//    puts("");
     return 0;
 }
 

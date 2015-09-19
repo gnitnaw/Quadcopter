@@ -1,5 +1,6 @@
 #include <time.h>
 #include <stdio.h>
+#include <math.h>
 //#include <string.h>
 #include <unistd.h>
 #include <bcm2835.h>
@@ -8,9 +9,11 @@
 #include "I2CControl.h"
 #include "Initialization.h"
 #include "Calibration.h"
+#include "SPIControl.h"
 #include "Device.h"
 
 #define	LINESIZE	256
+#define RAD_TO_DEG      (180/M_PI)
 
 /* A mutex protecting job_queue. */
 
@@ -45,15 +48,16 @@ void* Renew_baro_cycle(void *data) {
 int main(void) {
     struct timespec tp1, tp2;
     unsigned long startTime, procesTime;
+    int command=0, angle=0;
     float deltaT = 2.5e-3;
     I2CVariables i2c_var;
     I2CVariblesCali i2c_cali;
 
     pthread_t t_magn, t_baro;
 
-    int i=0,ret;
+    int i=0,j,ret;
     if ( (ret=init_all(&i2c_var)) !=0) return ret;
-
+    puts("Start calibration!");
     Calibration_getSD_multithread(&i2c_cali);
     printf("ACCL MEAN: %f, %f, %f; ", i2c_cali.accl_offset[0], i2c_cali.accl_offset[1], i2c_cali.accl_offset[2]);
     printf("ACCL SD: %f, %f, %f\n", i2c_cali.accl_sd[0], i2c_cali.accl_sd[1], i2c_cali.accl_sd[2]);
@@ -63,6 +67,7 @@ int main(void) {
     printf("MAGN SD: %f, %f, %f\n", i2c_cali.magn_sd[0], i2c_cali.magn_sd[1], i2c_cali.magn_sd[2]);
     printf("ALTITUDE MEAN: %f; ALTITUDE SD: %f\n", i2c_cali.altitude_offset, i2c_cali.altitude_sd);
 
+    RF24_init();
     Drone_Status stat;
     Data_init(&i2c_cali, &stat);
 
@@ -74,7 +79,7 @@ int main(void) {
     clock_gettime(CLOCK_REALTIME, &tp1);
     startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
 
-    for (i=0; i<10000; ++i) {
+    for (i=0; i<1000; ++i) {
 	if ( (ret=Renew_acclgyro(&i2c_var))!=0 ) return ret;
 	clock_gettime(CLOCK_REALTIME, &tp2);
     	procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
@@ -85,14 +90,27 @@ int main(void) {
 //	Quaternion_renew(accl, gyro_corr, magn, &deltaT, Eular);
 	//for (j=0; j<3; ++j) {}
 	if (i%100==0){
-	    printf("A = : %f, %f, %f, %f, 0x%X\t", stat.x[0], stat.x[1], stat.x[2], stat.altitude_corr, stat.status);
-	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E\n", stat.angle[0], stat.angle[1], stat.angle[2], deltaT);
+	    printf("%d: A = : %f, %f, %f, %f, 0x%X\t", i, stat.a[0], stat.a[1], stat.a[2], stat.altitude_corr, stat.status);
+	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E ", RAD_TO_DEG*stat.angle[0], RAD_TO_DEG*stat.angle[1], RAD_TO_DEG*stat.angle[2], deltaT);
+	    printf("Angle = %d, command = %d\n", angle, command);
 	}
-	usleep(2000);
+
+	angle = 0;
+
+	for (j=0; j<3; ++j) {
+	    angle += ((int)roundf(RAD_TO_DEG*stat.angle[j])&0xFF)<<(j*8) ;
+	}
+	angle += ((int)roundf(stat.altitude_corr*100)&0xFF)<<24;
+
+	RF24_exchangeInfo(&command, &angle);
+//	for (j=0; j<4; ++j) {
+	    i2c_var.PWM_power[0]=0;
+//	}
+	Renew_PWM(&i2c_var);
 	tp1 = tp2;
 	startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
     }
-
+    puts("Done!");
     return end_all(&i2c_var);
 }
 

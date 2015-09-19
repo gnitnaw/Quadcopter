@@ -33,41 +33,11 @@ typedef struct {
 } I2CCaliThread;
 
 
-void ADXL345_init(int i);
-int ADXL345_getRawValue(void);
-int ADXL345_getRealData(float* acceleration);
-void L3G4200D_init(int i);
-int L3G4200D_getRawValue(void);
-int L3G4200D_getRealData(float* angVel);
-void HMC5883L_singleMeasurement(void);
-void HMC5883L_init(int i);
-int HMC5883L_getRawValue(void);
-int HMC5883L_getRealData(float* magn);
-int HMC5883L_getRealData_Direct(float* magn);
-int HMC5883L_getOriginalData_Direct(float* magn);
-int HMC5883L_dataReady(void);
-void BMP085_init(int i);
-void BMP085_Trigger_UTemp(void);
-void BMP085_Trigger_UPressure(void);
-int BMP085_getRawTemp(void);
-int BMP085_getRawPressure(void);
-int BMP085_getRealData(float *RTD, long *RP, float *altitude);
-int getAccGyro(float *accl, float *gyro);
-
-
-void PCA9685PW_PWMReset(void);
-void PCA9685PW_init(int i);
-int PCA9685PWMFreq(void);
-void PCA9685PW_PWMReset(void);
-int pca9685PWMReadSingle(int pin, int *data);
-int pca9685PWMReadSingleOff(int pin, int *off);
-int pca9685PWMReadMulti(int* pin, int data[][2], int num);
-int pca9685PWMReadMultiOff(int pin, int *data, int num);
-void pca9685PWMWriteSingle(int pin, int* data);
-void pca9685PWMWriteSingleOff(int pin, int off);
-void pca9685PWMWriteMulti(int *pin, int data[][2], int num);
-void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
-
+void ADXL345_init(int k);
+void L3G4200D_init(int k);
+void HMC5883L_init(int k);
+void BMP085_init(int k);
+void PCA9685PW_init(int k);
 
 void I2CVariables_init(I2CVariables *i2c_var);
 int I2CVariables_end(I2CVariables *i2c_var);
@@ -75,5 +45,6 @@ int Renew_acclgyro(I2CVariables *i2c_var);
 int Renew_magn(I2CVariables *i2c_var);
 int Renew_magn_Origin(I2CVariables *i2c_var);
 int Renew_baro(I2CVariables *i2c_var);
+void Renew_PWM(I2CVariables *i2c_var);
 
 #endif

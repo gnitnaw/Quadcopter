@@ -57,14 +57,14 @@ void exchange(char *buf, int len) {
     }
 }
 
-void ADXL345_init(int i) {
-    if (i != 0 && i != 1) {
+void ADXL345_init(int k) {
+    if (k != 0 && k != 1) {
 	puts("MUST BE 0 or 1 !");
 	return;
     }
     bcm2835_i2c_setSlaveAddress(ADXL345_ADDR);
 
-    if (i==1) {
+    if (k==1) {
         regaddr[0] = ADXL345_POWER_CTL;			// Standby
         regaddr[1] = 0x00;
         bcm2835_i2c_write(regaddr,2);
@@ -117,26 +117,26 @@ int ADXL345_getRawValue(void) {
     return 0;
 }
 
-int ADXL345_getRealData(float* acceleration) {
-    if ( (ret_acc=ADXL345_getRawValue()) !=0) return ret_acc;
+void ADXL345_getRealData(float* acceleration) {
+//    if ( (ret_acc=ADXL345_getRawValue()) !=0) return ret_acc;
     for (iAcc=0; iAcc<3; ++iAcc) {
 	acceleration[iAcc] = accl[iAcc] * ADXL345_UNIT;
     }
-    return 0;
+//    return 0;
 }
 
 // L3G4200D Setting
 // See here : http://itseddy.me/embedded/2014/11/30/L3G4200D-i2c.html
 
-void L3G4200D_init(int i) {
-    if (i != 0 && i != 1) {
+void L3G4200D_init(int k) {
+    if (k != 0 && k != 1) {
         puts("MUST BE 0 or 1 !");
         return;
     }
 
     bcm2835_i2c_setSlaveAddress(L3G4200D_ADDR);
 
-    if (i==1) {
+    if (k==1) {
         regaddr[0] = L3G4200D_CTRL_REG1;
 	switch(L3G4200D_RATE) {
 	    case 100:
@@ -200,16 +200,14 @@ int L3G4200D_getRawValue(void) {
     return 0;
 }
 
-int L3G4200D_getRealData(float* angVel) {
-    if ( (ret_gyr=L3G4200D_getRawValue()) !=0) return ret_gyr;
+void L3G4200D_getRealData(float* angVel) {
+//    if ( (ret_gyr=L3G4200D_getRawValue()) !=0) return ret_gyr;
 
     for (iGyr=0; iGyr<3; ++iGyr) {
 	angVel[iGyr] = gyro[iGyr] * L3G4200D_UNIT * DEG_TO_RAD;
 	if (L3G4200D_RANGE == 500) angVel[iGyr] *= 2;
 	else if (L3G4200D_RANGE == 2000) angVel[iGyr] *= 8;
     }
-
-    return 0;
 
 }
 
@@ -220,15 +218,15 @@ void HMC5883L_singleMeasurement(void) {
     bcm2835_i2c_write(regaddr,2);
 }
 
-void HMC5883L_init(int i) {
-    if (i != 0 && i != 1) {
+void HMC5883L_init(int k) {
+    if (k != 0 && k != 1) {
         puts("MUST BE 0 or 1 !");
         return;
     }
 
     bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
 
-    if (i==1) {
+    if (k==1) {
 
         regaddr[0] = HMC5883L_MODE_REG;
         regaddr[1] = 0x00;                              // continue mode
@@ -300,22 +298,21 @@ int HMC5883L_getRealData(float* magn) {
 
 }
 
-int HMC5883L_getRealData_Direct(float* magn) {
-    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
+void HMC5883L_getRealData_Direct(float* magn) {
+//    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
     //usleep(6000);
-    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
+    //if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
 
     for (iMag=0; iMag<3; ++iMag) magn[iMag] = mag_gain[iMag] *(mag[iMag] - mag_offset[iMag]) * HMC5883L_RESOLUTION;
-    return 0;
+//    return 0;
 }
 
-int HMC5883L_getOriginalData_Direct(float* magn) {
-    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
+void HMC5883L_getOriginalData_Direct(float* magn) {
+//    bcm2835_i2c_setSlaveAddress(HMC5883L_ADDR);
     //usleep(6000);
-    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
+//    if ( (ret_mag=HMC5883L_getRawValue()) !=0) return ret_mag;
 
     for (iMag=0; iMag<3; ++iMag) magn[iMag] = (float) mag[iMag] * HMC5883L_RESOLUTION;
-    return 0;
 }
 
 int HMC5883L_dataReady(void) {
@@ -329,8 +326,8 @@ int HMC5883L_dataReady(void) {
 }
 
 
-void BMP085_init(int i) {
-    if (i != 0 && i != 1) {
+void BMP085_init(int k) {
+    if (k != 0 && k != 1) {
         puts("MUST BE 0 or 1 !");
         return;
     }
@@ -338,7 +335,7 @@ void BMP085_init(int i) {
     bcm2835_i2c_setSlaveAddress(BMP085_ADDR);
     char *buf = (char*)&Para_BMP085;
 
-    if (i==1) {
+    if (k==1) {
         regaddr[0] = BMP085_AC1;
 	regaddr[1] = 0;
         bcm2835_i2c_write(regaddr, 1);
@@ -394,7 +391,7 @@ int BMP085_getRawPressure(void) {
     return 0;
 }
 
-int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
+void BMP085_getRealData(float *RTD, long *RP, float *altitude) {
 //    BMP085_Trigger_UTemp();
 //    if (BMP085_getRawTemp() !=0 ) return ERROR_BMP085_IO;
 //    BMP085_Trigger_UPressure();
@@ -428,10 +425,10 @@ int BMP085_getRealData(float *RTD, long *RP, float *altitude) {
 
     *altitude = 44330 * (1 - pow((*RP)*1.0/P0, 1/5.255) );
 
-    return 0;
+//    return 0;
 }
 
-int getAccGyro(float *accl, float *gyro) {
-    if ((ret_acc=ADXL345_getRealData(accl)) !=0 || (ret_gyr=L3G4200D_getRealData(gyro)) !=0 ) return ((ret_gyr << 8)+ret_acc);
-    return 0;
+void getAccGyro(float *accl, float *gyro) {
+    ADXL345_getRealData(accl);
+    L3G4200D_getRealData(gyro);
 }

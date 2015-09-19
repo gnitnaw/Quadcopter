@@ -53,7 +53,7 @@ void Data_Copy(I2CVariables *i2c_val, Drone_Status *stat) {
     // Check data quality
 
     stat->acc_magnitude = Common_GetNorm(stat->accl, 3);
-    stat->mag_magnitude = Common_GetNorm(stat->accl, 2);
+    stat->mag_magnitude = Common_GetNorm(stat->magn, 2);
     if ( (facter = fabsf(stat->acc_magnitude - stat->g_magnitude) ) >  stat->accl_err * 3 ) {
 	ret |= (1<<7);											// Means this accl value should not be used into filter
 	if ( (facter=stat->acc_magnitude/stat->g_magnitude)>2.5 || facter < 0.5 ) ret |= (1<<6);			// Data may be incorrect
