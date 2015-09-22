@@ -9,6 +9,15 @@
 #define BMP085_ADDR             0x77            // Barometer + Thermometer      Bosch BMP085
 #define PCA9685PW_ADDR          0x40		// PWM				PCA9685PW
 
+int pca9685PWMReadSingle(int pin, int *data);
+int pca9685PWMReadSingleOff(int pin, int *off);
+int pca9685PWMReadMulti(int* pin, int data[][2], int num);
+int pca9685PWMReadMultiOff(int* pin, int *data, int num);
+void pca9685PWMWriteSingle(int pin, int* data);
+void pca9685PWMWriteSingleOff(int pin, int off);
+void pca9685PWMWriteMulti(int *pin, int data[][2], int num);
+void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
+
 typedef struct {
     pthread_mutex_t mutex;
     float accl[3], gyro[3], magn[3];
@@ -46,5 +55,6 @@ int Renew_magn(I2CVariables *i2c_var);
 int Renew_magn_Origin(I2CVariables *i2c_var);
 int Renew_baro(I2CVariables *i2c_var);
 void Renew_PWM(I2CVariables *i2c_var);
+int Renew_PWM_read(I2CVariables *i2c_var);
 
 #endif

@@ -1,3 +1,22 @@
+/*
+    Quadcopter -- main.c
+    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
 #include <time.h>
 #include <stdio.h>
 #include <math.h>
@@ -55,61 +74,21 @@ int main(void) {
 
     pthread_t t_magn, t_baro;
 
-    int i=0,j,ret;
+    int i=0,j,ret,s;
     if ( (ret=init_all(&i2c_var)) !=0) return ret;
-    puts("Start calibration!");
-    Calibration_getSD_multithread(&i2c_cali);
-    printf("ACCL MEAN: %f, %f, %f; ", i2c_cali.accl_offset[0], i2c_cali.accl_offset[1], i2c_cali.accl_offset[2]);
-    printf("ACCL SD: %f, %f, %f\n", i2c_cali.accl_sd[0], i2c_cali.accl_sd[1], i2c_cali.accl_sd[2]);
-    printf("GYRO MEAN: %f, %f, %f; ", i2c_cali.gyro_offset[0], i2c_cali.gyro_offset[1], i2c_cali.gyro_offset[2]);
-    printf("GYRO SD: %f, %f, %f\n", i2c_cali.gyro_sd[0], i2c_cali.gyro_sd[1], i2c_cali.gyro_sd[2]);
-    printf("MAGN MEAN: %f, %f, %f; ", i2c_cali.magn_offset[0], i2c_cali.magn_offset[1], i2c_cali.magn_offset[2]);
-    printf("MAGN SD: %f, %f, %f\n", i2c_cali.magn_sd[0], i2c_cali.magn_sd[1], i2c_cali.magn_sd[2]);
-    printf("ALTITUDE MEAN: %f; ALTITUDE SD: %f\n", i2c_cali.altitude_offset, i2c_cali.altitude_sd);
-
-    RF24_init();
-    Drone_Status stat;
-    Data_init(&i2c_cali, &stat);
-
-    pthread_create(&t_magn, NULL, &Renew_magn_cycle, (void*) &i2c_var);
-    pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &i2c_var);
-    usleep(50000);
-
-
-    clock_gettime(CLOCK_REALTIME, &tp1);
-    startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-
-    for (i=0; i<1000; ++i) {
-	if ( (ret=Renew_acclgyro(&i2c_var))!=0 ) return ret;
-	clock_gettime(CLOCK_REALTIME, &tp2);
-    	procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
-	deltaT = (float)procesTime/1000000000.0;
-	Data_Copy(&i2c_var, &stat);
-	Data_Renew(&stat, &deltaT);
-
-//	Quaternion_renew(accl, gyro_corr, magn, &deltaT, Eular);
-	//for (j=0; j<3; ++j) {}
-	if (i%100==0){
-	    printf("%d: A = : %f, %f, %f, %f, 0x%X\t", i, stat.a[0], stat.a[1], stat.a[2], stat.altitude_corr, stat.status);
-	    printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E ", RAD_TO_DEG*stat.angle[0], RAD_TO_DEG*stat.angle[1], RAD_TO_DEG*stat.angle[2], deltaT);
-	    printf("Angle = %d, command = %d\n", angle, command);
-	}
-
-	angle = 0;
-
-	for (j=0; j<3; ++j) {
-	    angle += ((int)roundf(RAD_TO_DEG*stat.angle[j])&0xFF)<<(j*8) ;
-	}
-	angle += ((int)roundf(stat.altitude_corr*100)&0xFF)<<24;
-
-	RF24_exchangeInfo(&command, &angle);
-//	for (j=0; j<4; ++j) {
-	    i2c_var.PWM_power[0]=0;
-//	}
+    printf("FIRST -- PWM setting is : %d, %d, %d, %d\n", i2c_var.PWM_power[0], i2c_var.PWM_power[1], i2c_var.PWM_power[2], i2c_var.PWM_power[3]);
+    do {
+	Renew_PWM_read(&i2c_var);
+	printf("PWM setting is : %d, %d, %d, %d\n", i2c_var.PWM_power[0], i2c_var.PWM_power[1], i2c_var.PWM_power[2], i2c_var.PWM_power[3]);
+        puts("Input a number");
+        scanf("%d", &s);
+        printf("You have input %d\n", s);
+	i2c_var.PWM_power[1]=s;
+//	pca9685PWMWriteMultiOff(i2c_var.PWM_pin, i2c_var.PWM_power, 4);
+	//pca9685PWMWriteSingleOff(i2c_var.PWM_pin[0], i2c_var.PWM_power[0]);
 	Renew_PWM(&i2c_var);
-	tp1 = tp2;
-	startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-    }
+    } while (s>0);
+
     puts("Done!");
     return end_all(&i2c_var);
 }

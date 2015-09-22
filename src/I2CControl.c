@@ -1,8 +1,28 @@
+/*
+    Quadcopter -- I2CControl.c
+    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <bcm2835.h>
 #include "I2CControl.h"
+#define	NPWM	4
 
 int ADXL345_getRawValue(void);
 void ADXL345_getRealData(float* acceleration);
@@ -21,23 +41,35 @@ int BMP085_getRawPressure(void);
 void BMP085_getRealData(float *RTD, long *RP, float *altitude);
 void getAccGyro(float *accl, float *gyro);
 
+
 int PCA9685PWMFreq(void);
 void PCA9685PW_PWMReset(void);
+/*
 int pca9685PWMReadSingle(int pin, int *data);
 int pca9685PWMReadSingleOff(int pin, int *off);
 int pca9685PWMReadMulti(int* pin, int data[][2], int num);
-int pca9685PWMReadMultiOff(int pin, int *data, int num);
+int pca9685PWMReadMultiOff(int* pin, int *data, int num);
 void pca9685PWMWriteSingle(int pin, int* data);
 void pca9685PWMWriteSingleOff(int pin, int off);
 void pca9685PWMWriteMulti(int *pin, int data[][2], int num);
 void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
+*/
 
 //#include "Error.h"
 pthread_mutex_t mutex_I2C;
-static int pwm_pin[4], pwm_power[4], i;
+static int pwm_pin[NPWM];
+static int pwm_power[NPWM];
+static int i, ret;
+
 void I2CVariables_init(I2CVariables *i2c_var) {
-    memset(i2c_var, sizeof(I2CVariables), 0);
-    memcpy(pwm_pin,i2c_var->PWM_pin, sizeof(int)*8);
+/*    for (i=0; i<NPWM; ++i) {
+	pwm_pin[i] = pwm_power[i] = 0;
+    }*/
+    memset(i2c_var, 0, sizeof(I2CVariables));
+    for (i=0; i<4; ++i) {
+        i2c_var->PWM_pin[i] = i;
+    }
+    memcpy(pwm_pin,i2c_var->PWM_pin, sizeof(int)*NPWM*2);
     pthread_mutex_init (&i2c_var->mutex, NULL);
 }
 
@@ -171,19 +203,37 @@ void Renew_PWM(I2CVariables *i2c_var) {
         delayMicroseconds(100);
 	//usleep(100);
     }
-//    memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*4);
-    for (i=0; i<4; ++i) {
-	pwm_power[i] = i2c_var->PWM_power[i];
-    }
+    memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*4);
+//    for (i_I2C=0; i_I2C<4; ++i_I2C) {
+//	pwm_power[i_I2C] = i2c_var->PWM_power[i_I2C];
+//    }
 
     pthread_mutex_unlock (&i2c_var->mutex);
 
-    while (pthread_mutex_trylock(&mutex_I2C) != 0) {
-        delayMicroseconds(100);
-	//usleep(100);
-    }
-    pca9685PWMWriteMultiOff(pwm_pin, pwm_power, 4);
+    while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
+
+    pca9685PWMWriteMultiOff(pwm_pin, pwm_power, NPWM);
     pthread_mutex_unlock (&mutex_I2C);
 
+}
+
+int Renew_PWM_read(I2CVariables *i2c_var) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
+
+    if ( (ret=pca9685PWMReadMultiOff(pwm_pin, pwm_power, NPWM))!=0) {
+	return ret;
+    }
+    pthread_mutex_unlock (&mutex_I2C);
+
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
+
+    for (i=0; i<4; ++i) {
+        i2c_var->PWM_power[i] = pwm_power[i];
+    }
+//    memcpy(i2c_var->PWM_power, pwm_power, sizeof(int)*4);
+
+    pthread_mutex_unlock (&i2c_var->mutex);
+
+    return 0;
 }
 

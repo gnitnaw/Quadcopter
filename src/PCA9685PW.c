@@ -1,3 +1,21 @@
+/*
+    Quadcopter -- PCA9685PW.c
+    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,7 +26,7 @@
 extern int PCA9685PW_FREQ;
 static char regaddr[2];
 static char databuf[4];
-static int i;
+static int i, ret_PWM;
 int PCA9685PWMFreq(void);
 void PCA9685PW_PWMReset(void);
 
@@ -28,7 +46,6 @@ void PCA9685PW_init(int k) {
     bcm2835_i2c_setSlaveAddress(PCA9685PW_ADDR);
 
     if (k==1) {
-	int ret;
         regaddr[0] = PCA9685PW_MODE1;
         regaddr[1] = 0x00;
         bcm2835_i2c_write(regaddr, 2);
@@ -37,8 +54,8 @@ void PCA9685PW_init(int k) {
         regaddr[1] = PCA9685PW__OUTDRV;
 	bcm2835_i2c_write(regaddr, 2);
 
-	if ((ret = PCA9685PWMFreq())!=0) {
-            printf("Parameters of PCA9685PW are not correctly loaded -- code %d", ret);
+	if ((ret_PWM = PCA9685PWMFreq())!=0) {
+            printf("Parameters of PCA9685PW are not correctly loaded -- code %d", ret_PWM);
             return;
 	}
 
@@ -47,7 +64,6 @@ void PCA9685PW_init(int k) {
 }
 
 int PCA9685PWMFreq(void) {
-    int ret;
     PCA9685PW_init(0);
     PCA9685PW_FREQ = (PCA9685PW_FREQ > 1526 ? 1526 : (PCA9685PW_FREQ < 24 ? 24 : PCA9685PW_FREQ));
     int prescale = (int)(25000000.0f / (4096 * PCA9685PW_FREQ) - 0.5f);
@@ -55,8 +71,8 @@ int PCA9685PWMFreq(void) {
     regaddr[0] = PCA9685PW_MODE1;
     regaddr[1] = 0;
     bcm2835_i2c_write(regaddr, 1);
-    if ((ret = bcm2835_i2c_read(databuf, 1)) != BCM2835_I2C_REASON_OK) {
-        return ret;
+    if ((ret_PWM = bcm2835_i2c_read(databuf, 1)) != BCM2835_I2C_REASON_OK) {
+        return ret_PWM;
     }
     regaddr[1] = (databuf[0] & 0x7F) | PCA9685PW__SLEEP;		// Go to sleep
     bcm2835_i2c_write(regaddr, 2);
@@ -104,7 +120,7 @@ int pca9685PWMReadSingle(int pin, int *data) {
 
     for (i=0; i<4; ++i) {
     	bcm2835_i2c_write(regaddr, 1);
-    	if (bcm2835_i2c_read(&databuf[i], 1) != BCM2835_I2C_REASON_OK) return -1;
+    	if ( (ret_PWM=bcm2835_i2c_read(&databuf[i], 1)) != BCM2835_I2C_REASON_OK) return ret_PWM;
 	++regaddr[0];
     }
 
@@ -119,7 +135,7 @@ int pca9685PWMReadSingleOff(int pin, int *off) {
     regaddr[0] = baseReg(pin)+2;
     for (i=0; i<2; ++i) {
         bcm2835_i2c_write(regaddr, 1);
-        if (bcm2835_i2c_read(&databuf[i], 1) != BCM2835_I2C_REASON_OK) return -1;
+        if ( (ret_PWM=bcm2835_i2c_read(&databuf[i], 1)) != BCM2835_I2C_REASON_OK) return ret_PWM;
         ++regaddr[0];
     }
 
@@ -136,7 +152,7 @@ int pca9685PWMReadMulti(int* pin, int data[][2], int num) {
 	regaddr[0] = baseReg(pin[i]);
 	for (j=0; j<4; ++j) {
 	    bcm2835_i2c_write(regaddr, 1);
-	    if (bcm2835_i2c_read(&databuf[j], 1) != BCM2835_I2C_REASON_OK) return -1;
+	    if ( (ret_PWM=bcm2835_i2c_read(&databuf[j], 1)) != BCM2835_I2C_REASON_OK) return ret_PWM;
             ++regaddr[0];
     	}
 
@@ -147,16 +163,17 @@ int pca9685PWMReadMulti(int* pin, int data[][2], int num) {
     return 0;
 }
 
-int pca9685PWMReadMultiOff(int pin, int *data, int num) {  // if pin = 0, num = 3, data will be : off_0, off_1, off_2
+int pca9685PWMReadMultiOff(int *pin, int *data, int num) {  // if pin = 0, num = 3, data will be : off_0, off_1, off_2
     int j;
     PCA9685PW_init(0);
 
     for (i=0; i<num; ++i) {
-	regaddr[0] = baseReg(pin+i)+2;
+	regaddr[0] = baseReg(pin[i])+2;
         for (j=0; j<2; ++j) {
             bcm2835_i2c_write(regaddr, 1);
-            if (bcm2835_i2c_read(&databuf[j], 1) != BCM2835_I2C_REASON_OK) return -1;
+            if ( (ret_PWM=bcm2835_i2c_read(&databuf[j], 1)) != BCM2835_I2C_REASON_OK) return ret_PWM;
             ++regaddr[0];
+	    printf("DEBUG : %d, %d, %u\n", i, j, (unsigned char)databuf[j]);
         }
         data[i] = (databuf[0] + ((int)databuf[1]<<8)) & 0xFFF;
     }
