@@ -173,7 +173,6 @@ int pca9685PWMReadMultiOff(int *pin, int *data, int num) {  // if pin = 0, num =
             bcm2835_i2c_write(regaddr, 1);
             if ( (ret_PWM=bcm2835_i2c_read(&databuf[j], 1)) != BCM2835_I2C_REASON_OK) return ret_PWM;
             ++regaddr[0];
-	    printf("DEBUG : %d, %d, %u\n", i, j, (unsigned char)databuf[j]);
         }
         data[i] = (databuf[0] + ((int)databuf[1]<<8)) & 0xFFF;
     }

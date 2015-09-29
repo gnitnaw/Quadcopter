@@ -22,14 +22,14 @@
 #include <string.h>
 #include "Device.h"
 #include "Common.h"
-#define	ACC_UNIT	9.8
+#define	ACC_UNIT	9.79
 #define ALTITUDE_FILTER	0.995
 
 static int ret, i;
 static float facter;
 
 void Data_init(I2CVariblesCali *i2c_cali, Drone_Status *stat) {
-    memset(stat, 0, sizeof(Drone_Status));
+//    memset(stat, 0, sizeof(Drone_Status));
     stat->altitude_corr = 0.0;
     stat->altitude_zero = i2c_cali->altitude_offset;
     stat->g_magnitude = i2c_cali->accl_abs;

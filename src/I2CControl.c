@@ -24,6 +24,8 @@
 #include "I2CControl.h"
 #define	NPWM	4
 
+extern int PWM_CHANNEL[NPWM];
+
 int ADXL345_getRawValue(void);
 void ADXL345_getRealData(float* acceleration);
 int L3G4200D_getRawValue(void);
@@ -57,26 +59,20 @@ void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
 
 //#include "Error.h"
 pthread_mutex_t mutex_I2C;
-static int pwm_pin[NPWM];
 static int pwm_power[NPWM];
 static int i, ret;
 
 void I2CVariables_init(I2CVariables *i2c_var) {
-/*    for (i=0; i<NPWM; ++i) {
-	pwm_pin[i] = pwm_power[i] = 0;
-    }*/
     memset(i2c_var, 0, sizeof(I2CVariables));
-    for (i=0; i<4; ++i) {
-        i2c_var->PWM_pin[i] = i;
-    }
-    memcpy(pwm_pin,i2c_var->PWM_pin, sizeof(int)*NPWM*2);
+//    memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*NPWM);
     pthread_mutex_init (&i2c_var->mutex, NULL);
 }
 
 int I2CVariables_end(I2CVariables *i2c_var) {
-    while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
+//    while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
     PCA9685PW_PWMReset();
-    pthread_mutex_unlock (&mutex_I2C);
+//    pthread_mutex_unlock (&mutex_I2C);
+//    pthread_mutex_destroy(&mutex_I2C);
     return pthread_mutex_destroy(&i2c_var->mutex);
 }
 
@@ -212,7 +208,7 @@ void Renew_PWM(I2CVariables *i2c_var) {
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
 
-    pca9685PWMWriteMultiOff(pwm_pin, pwm_power, NPWM);
+    pca9685PWMWriteMultiOff(PWM_CHANNEL, pwm_power, NPWM);
     pthread_mutex_unlock (&mutex_I2C);
 
 }
@@ -220,7 +216,7 @@ void Renew_PWM(I2CVariables *i2c_var) {
 int Renew_PWM_read(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
 
-    if ( (ret=pca9685PWMReadMultiOff(pwm_pin, pwm_power, NPWM))!=0) {
+    if ( (ret=pca9685PWMReadMultiOff(PWM_CHANNEL, pwm_power, NPWM))!=0) {
 	return ret;
     }
     pthread_mutex_unlock (&mutex_I2C);

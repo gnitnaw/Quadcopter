@@ -24,7 +24,7 @@ typedef struct {
     float RTD, altitude;
     long RP;
     int ret[3];
-    int PWM_pin[4];
+//    int PWM_pin[4];
     int PWM_power[4];
 } I2CVariables;
 

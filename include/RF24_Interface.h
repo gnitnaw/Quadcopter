@@ -1,5 +1,5 @@
 /*
-    Quadcopter -- SPIControl.h
+    Quadcopter -- RF24_Interface.h
     Auther: Wan-Ting CHEN (wanting@gmail.com)
 
     This program is free software: you can redistribute it and/or modify
@@ -15,21 +15,21 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef H_SPICONTROL
-#define H_SPICONTROL
+#ifndef H_RF24_INTERFACE
+#define H_RF24_INTERFACE
 #include <pthread.h>
-#include "RF24_Interface.h"
 
-typedef struct {
-    pthread_mutex_t mutex;
-    float voltage;
-    int control;
-    int output;
-} SPIVariables;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void SPIVariables_init(SPIVariables *spi_var);
-int SPIVariables_end(SPIVariables *spi_var);
-void RF24_Renew(SPIVariables *spi_var);
-void MCP3008_Renew(SPIVariables *spi_var);
+void RF24_init(void);
+void RF24_exchangeInfo(int *in, int *out);
+//void MCP3008_init(void) ;
+//void MCP3008_getRawValue(void) ;
+//void MCP3008_getRealData(float *volt) ;
 
+#ifdef __cplusplus
+}
+#endif
 #endif
