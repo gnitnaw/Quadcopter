@@ -1,5 +1,7 @@
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <math.h>
 #include <pthread.h>
 #include <bcm2835.h>
@@ -8,16 +10,70 @@
 #include "Quaternion.h"
 #include "Calibration.h"
 
+#define NUM_THREADS	3
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
+#define RAD_TO_DEG      (180/M_PI)
+
+static int iThread = 1;
+/* A mutex protecting job_queue. */
+static unsigned int thread_count;
 
 static int ret, i;
 static float factor;
-
+static unsigned long iDetect = 0;
 extern unsigned short THROTTLE;
 extern float expectAngle[3], expectAngvel[3];
 
 extern float Kp, Ki, Kd;
+
+static pthread_t t_magn, t_baro, t_accgyr;
+
+static struct timespec tp1, tp2;
+static unsigned long startTime, procesTime;
+static float deltaT = 2.5e-3;
+
+void* Renew_accgyr_cycle(void *data) {
+    Drone_Status *stat = (Drone_Status*) data;
+    clock_gettime(CLOCK_REALTIME, &tp1);
+    startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
+
+    while (iThread) {
+	Renew_acclgyro(&stat->i2c_var);
+	clock_gettime(CLOCK_REALTIME, &tp2);
+        procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
+        deltaT = (float)procesTime/1000000000.0;
+	Drone_Renew(stat, &deltaT);
+        if (iDetect%100==0){
+            printf("%ld: A = : %f, %f, %f, %f, \t", iDetect, stat->a[0], stat->a[1], stat->a[2], stat->altitude_corr);
+            printf("Roll = %f, Pitch = %f, Yaw = %f, Yaw_real = %f, dt = %E \n", RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2],RAD_TO_DEG*stat->yaw_real, deltaT);
+        }
+	iDetect++;
+	tp1 = tp2;
+        startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
+    }
+    __sync_fetch_and_sub(&thread_count,1);
+    return 0;
+}
+
+void* Renew_magn_cycle(void *data) {
+//    I2CVariables* var = (I2CVariables*) data;
+    while (iThread) {
+        Renew_magn((I2CVariables*) data);
+    }
+    __sync_fetch_and_sub(&thread_count,1);
+    return 0;
+}
+
+void* Renew_baro_cycle(void *data) {
+    I2CVariables* var = (I2CVariables*) data;
+    while(iThread) {
+        Renew_baro(var);
+    }
+    __sync_fetch_and_sub(&thread_count,1);
+    return 0;
+}
+
 
 int Drone_init(Drone_Status *stat) {
     memset(stat, 0, sizeof(Drone_Status));
@@ -38,8 +94,15 @@ int Drone_init(Drone_Status *stat) {
 }
 
 void Drone_end(Drone_Status *stat) {
+    iThread = 0;
+    do {
+        __sync_synchronize();
+        usleep(1000000);
+    } while (thread_count);
+
     I2CVariables_end(&stat->i2c_var);
     bcm2835_i2c_end();
+    puts("END!");
 //    return 0;
 }
 
@@ -64,6 +127,13 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[1]  = -asin(stat->i2c_cali.accl_offset[0]/stat->i2c_cali.accl_abs);			// pitch
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[0]/Common_GetNorm(stat->i2c_cali.magn_offset, 2));	// yaw
     Quaternion_From_Stat(stat);
+
+    thread_count = NUM_THREADS;
+    puts("Drone -- Run thread!");
+    pthread_create(&t_magn, NULL, &Renew_magn_cycle, (void*) &stat->i2c_var);
+    pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &stat->i2c_var);
+    usleep(50000);
+    pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
 }
 
 void Drone_Renew(Drone_Status *stat, float* deltaT) {
@@ -107,7 +177,7 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     pthread_mutex_unlock (&stat->i2c_var.mutex);
 }
 
-
+/*
 void Drone_Control(Drone_Status *stat) {
 }
 float pidUpdate(PIDControl* pid, const float measured,float expect,float gyro)
@@ -152,3 +222,4 @@ float pidUpdate(PIDControl* pid, const float measured,float expect,float gyro)
 
   return output;
 }
+*/
