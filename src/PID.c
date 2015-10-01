@@ -1,4 +1,5 @@
 #include <string.h>
+#include <math.h>
 #include "PID.h"
 
 static int i;
@@ -22,7 +23,7 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
         pid->outI[i] = pid->Ki_out * pid->angle_integ[i];
         pid->outD[i] = pid->Kd_out * pid->angle_deriv[i];
 
-        pid->output[i] = pid->outP[i] + pid->outI[i] + pid->outD[i];
+        pid->output[i] = (int) round(pid->outP[i] + pid->outI[i] + pid->outD[i]);
     }
 
     pwm[2] = (*power - pid->output[0] - pid->output[1] - pid->output[2] );    //M3

@@ -40,10 +40,13 @@ void SPIVariables_init(SPIVariables *spi_var) {
 }
 
 int SPIVariables_end(SPIVariables *spi_var) {
-    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
-    pthread_mutex_unlock (&mutex_SPI);
+//    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
+//    pthread_mutex_unlock (&mutex_SPI);
     pthread_mutex_destroy(&mutex_SPI);
-    return pthread_mutex_destroy(&spi_var->mutex);
+    pthread_mutex_destroy(&spi_var->mutex);
+    bcm2835_spi_end();
+
+    return 0;
 }
 
 void RF24_Renew(SPIVariables *spi_var) {
@@ -56,7 +59,7 @@ void RF24_Renew(SPIVariables *spi_var) {
 
 void MCP3008_Renew(SPIVariables *spi_var) {
     while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(1000);
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS0
+    bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS1
     MCP3008_getRawValue();
     pthread_mutex_unlock (&mutex_SPI);
     while (pthread_mutex_trylock(&spi_var->mutex) != 0) delayMicroseconds(1000);

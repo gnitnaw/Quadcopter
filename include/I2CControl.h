@@ -2,6 +2,7 @@
 #define H_I2CCONTROL
 
 #include <pthread.h>
+#include "PID.h"
 // Slave address
 #define ADXL345_ADDR            0x53            // 3 Axis Accelerometer         Analog Devices ADXL345 
 #define L3G4200D_ADDR           0x69            // 3 Axis Gyro                  ST Microelectronics L3G4200D
@@ -25,6 +26,7 @@ typedef struct {
     long RP;
     int ret[3];
 //    int PWM_pin[4];
+    PIDControl pid;
     int PWM_power[4];
 } I2CVariables;
 
@@ -54,6 +56,7 @@ int Renew_acclgyro(I2CVariables *i2c_var);
 int Renew_magn(I2CVariables *i2c_var);
 int Renew_magn_Origin(I2CVariables *i2c_var);
 int Renew_baro(I2CVariables *i2c_var);
+void PWM_init(I2CVariables *i2c_var);
 void Renew_PWM(I2CVariables *i2c_var);
 int Renew_PWM_read(I2CVariables *i2c_var);
 

@@ -48,6 +48,23 @@ int kbhit (void)
     select(STDIN_FILENO+1, &rdfs, NULL, NULL, &tv);
     return FD_ISSET(STDIN_FILENO, &rdfs);
 }
+char waitKey(void);
+int pw = 1850;
+char waitKey(void) {
+    char ch;
+    int a;
+    while ( !kbhit() ) {
+      usleep(1000000);
+    }
+
+    if ( (ch = getchar()) == 'P') {
+	puts("Give me the power");
+	scanf("%d", &a);
+	if ( a<=3280 && a>=1640) pw = a;
+	printf("Power = %d", pw);
+    }
+    return ch;
+}
 
 
 int main(void) {
@@ -58,15 +75,15 @@ int main(void) {
     puts("Start calibration!");
     Drone_Calibration(&stat);
     Drone_Calibration_printResult(&stat);
-//    RF24_init();
     Drone_Start(&stat);
 
     changemode(1);
-    while ( !kbhit() ) {
-//    putchar('.');
-      usleep(1000000);
-    }
-    c = getchar();
+//    while ( !kbhit() ) {
+//      usleep(1000000);
+//    }
+    do {
+	c = waitKey();
+    } while (c != 'c');
 
 //    do {
 //        puts("Press c to stop");

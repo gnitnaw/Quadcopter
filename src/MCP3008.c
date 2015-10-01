@@ -22,7 +22,8 @@
 #include "SPIControl.h"
 #define	FULLVALUE	1024
 static char send_buf[3] = {0x01, 0x80, 0x00}, receive_buf[3] = { 0x00, 0x00, 0x00 };
-static uint8_t msb, lsb, msbRead, adcRead0;
+static uint8_t msb=0, lsb=0;
+static int msbRead=0, adcRead0=0;
 extern float v_input;
 
 void MCP3008_init(void) {
@@ -39,7 +40,7 @@ void MCP3008_getRealData(float *volt) {
     lsb = (uint8_t)receive_buf[2];
     msbRead = msb & 0b00000011;
     adcRead0 = (msbRead << 8) | lsb;
-    *volt = (float)adcRead0 * v_input / FULLVALUE;
+//    printf("ADC: %d\n", adcRead0);
+    *volt = v_input * (float)adcRead0/ FULLVALUE;
 }
-
 

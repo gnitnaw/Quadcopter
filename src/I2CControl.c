@@ -60,10 +60,13 @@ void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
 //#include "Error.h"
 pthread_mutex_t mutex_I2C;
 static int pwm_power[NPWM];
-static int i, ret;
 
+static int i, ret, i_I2C;
+
+extern float pid_setting[8]; 
 void I2CVariables_init(I2CVariables *i2c_var) {
     memset(i2c_var, 0, sizeof(I2CVariables));
+    PID_init(&i2c_var->pid, pid_setting);
 //    memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*NPWM);
     pthread_mutex_init (&i2c_var->mutex, NULL);
 }
@@ -164,18 +167,16 @@ int Renew_baro(I2CVariables *i2c_var) {
     }
     BMP085_Trigger_UTemp();
     pthread_mutex_unlock (&mutex_I2C);
-//    usleep(5000);
     delay(5);
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C BAR1");
-//	usleep(1000);
 	delay(1);
     }
     i2c_var->ret[2] = BMP085_getRawTemp();
     BMP085_Trigger_UPressure();
     pthread_mutex_unlock (&mutex_I2C);
-    usleep(25500);
+    delayMicroseconds(25500);
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C BAR2");
@@ -200,9 +201,9 @@ void Renew_PWM(I2CVariables *i2c_var) {
 	//usleep(100);
     }
     memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*4);
-//    for (i_I2C=0; i_I2C<4; ++i_I2C) {
-//	pwm_power[i_I2C] = i2c_var->PWM_power[i_I2C];
-//    }
+    for (i_I2C=0; i_I2C<4; ++i_I2C) {
+	pwm_power[i_I2C] = i2c_var->PWM_power[i_I2C];
+    }
 
     pthread_mutex_unlock (&i2c_var->mutex);
 
@@ -211,6 +212,14 @@ void Renew_PWM(I2CVariables *i2c_var) {
     pca9685PWMWriteMultiOff(PWM_CHANNEL, pwm_power, NPWM);
     pthread_mutex_unlock (&mutex_I2C);
 
+}
+
+void PWM_init(I2CVariables *i2c_var) {
+    for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MAX;
+    Renew_PWM(i2c_var);
+    usleep(800000);
+    for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MIN;
+    Renew_PWM(i2c_var);
 }
 
 int Renew_PWM_read(I2CVariables *i2c_var) {
