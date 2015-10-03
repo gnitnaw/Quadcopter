@@ -65,5 +65,5 @@ void MCP3008_Renew(SPIVariables *spi_var) {
     while (pthread_mutex_trylock(&spi_var->mutex) != 0) delayMicroseconds(1000);
     MCP3008_getRealData(&spi_var->voltage);
     pthread_mutex_unlock (&spi_var->mutex);
-    delay(1000);
+    delay(5000);
 }

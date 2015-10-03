@@ -49,7 +49,8 @@ int kbhit (void)
     return FD_ISSET(STDIN_FILENO, &rdfs);
 }
 char waitKey(void);
-int pw = 1850;
+int power = 1640;
+int iPrint = 1;
 char waitKey(void) {
     char ch;
     int a;
@@ -57,12 +58,14 @@ char waitKey(void) {
       usleep(1000000);
     }
 
+    iPrint = 0;
     if ( (ch = getchar()) == 'P') {
 	puts("Give me the power");
 	scanf("%d", &a);
-	if ( a<=3280 && a>=1640) pw = a;
-	printf("Power = %d", pw);
+	if ( a<=3280 && a>=1640) power = a;
+	printf("Power = %d\n", power);
     }
+    iPrint = 1;
     return ch;
 }
 

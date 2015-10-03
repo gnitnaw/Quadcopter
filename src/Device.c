@@ -1,5 +1,6 @@
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
@@ -25,14 +26,16 @@ static float factor;
 static unsigned long iDetect = 0;
 extern unsigned short THROTTLE;
 extern float expectAngle[3], expectAngvel[3];
+extern int iPrint;
 
 static pthread_t t_magn, t_baro, t_accgyr, t_adc;
 
 static struct timespec tp1, tp2;
 static unsigned long startTime, procesTime;
 static float deltaT = 2.5e-3, dT_PWM = 0.0;
-static int power = 1850;
+extern int power;
 static float angle_expect[] = {0, 0, 0};
+static FILE *fp;
 
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
@@ -47,16 +50,16 @@ void* Renew_accgyr_cycle(void *data) {
 	dT_PWM += deltaT;
 	while (pthread_mutex_trylock(&stat->i2c_var.mutex) != 0) bcm2835_delayMicroseconds(100);
 	Drone_Renew(stat, &deltaT);
-        if (iDetect%200==0){
-            printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
+        if (iDetect%25==0 && iPrint){
+            //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
             printf("Roll = %f, Pitch = %f, Yaw = %f, Yaw_real = %f, dt = %E ", RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2],RAD_TO_DEG*stat->yaw_real, deltaT);
 	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) delayMicroseconds(100);
 	    printf("Voltage : %f\n", stat->spi_var.voltage);
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
 	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
-	if ( iDetect>1000 && (iDetect&1)) {
-	    if (iDetect==1000) angle_expect[2] = stat->angle[2];
+	if ( iDetect>1000 ) {
+	    if (iDetect%1000==0) angle_expect[2] = stat->angle[2];
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->angVel, stat->i2c_var.PWM_power, &dT_PWM, &power);
 	    dT_PWM = 0.0;
 	}
@@ -71,7 +74,6 @@ void* Renew_accgyr_cycle(void *data) {
 }
 
 void* Renew_magn_cycle(void *data) {
-//    I2CVariables* var = (I2CVariables*) data;
     while (iThread) {
         Renew_magn((I2CVariables*) data);
     }
@@ -133,7 +135,7 @@ void Drone_end(Drone_Status *stat) {
         __sync_synchronize();
         usleep(1000000);
     } while (thread_count);
-
+    fclose(fp);
     I2CVariables_end(&stat->i2c_var);
     SPIVariables_end(&stat->spi_var);
     bcm2835_i2c_end();
@@ -172,6 +174,14 @@ void Drone_Start(Drone_Status *stat) {
     pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &stat->i2c_var);
     usleep(50000);
     pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
+
+    fp = fopen("state.dat","w");
+    if (!fp) {
+	puts("Error when opening file!");
+	exit(1);
+    }
+
+    usleep(3000);
 }
 
 void Drone_Renew(Drone_Status *stat, float* deltaT) {
@@ -211,7 +221,7 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     stat->status = ret;
 
     Quaternion_renew_Drone(stat, deltaT);
-
+    fprintf(fp, "%f\n", *deltaT);
 //    pthread_mutex_unlock (&stat->i2c_var.mutex);
 }
 

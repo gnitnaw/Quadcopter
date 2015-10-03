@@ -26,9 +26,15 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
         pid->output[i] = (int) round(pid->outP[i] + pid->outI[i] + pid->outD[i]);
     }
 
-    pwm[2] = (*power - pid->output[0] - pid->output[1] - pid->output[2] );    //M3
-    pwm[0] = (*power + pid->output[0] + pid->output[1] - pid->output[2] );    //M1
-    pwm[3] = (*power - pid->output[0] + pid->output[1] + pid->output[2] );    //M4
-    pwm[1] = (*power + pid->output[0] - pid->output[1] + pid->output[2] );    //M2
+//    pwm[2] = (*power - pid->output[0] - pid->output[1] - pid->output[2] );    //M3
+//    pwm[0] = (*power + pid->output[0] + pid->output[1] - pid->output[2] );    //M1
+//    pwm[3] = (*power - pid->output[0] + pid->output[1] + pid->output[2] );    //M4
+//    pwm[1] = (*power + pid->output[0] - pid->output[1] + pid->output[2] );    //M2
+
+    pwm[2] = (*power + pid->output[0] - pid->output[1] - pid->output[2] );    //M3
+    pwm[0] = (*power - pid->output[0] + pid->output[1] - pid->output[2] );    //M1
+    pwm[3] = (*power + pid->output[0] + pid->output[1] + pid->output[2] );    //M4
+    pwm[1] = (*power - pid->output[0] - pid->output[1] + pid->output[2] );    //M2
+
 }
 

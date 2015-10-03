@@ -97,7 +97,7 @@ int Renew_acclgyro(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);//usleep(100);
     getAccGyro(i2c_var->accl, i2c_var->gyro);
     pthread_mutex_unlock (&i2c_var->mutex);
-    delayMicroseconds(4000);
+    delayMicroseconds(3000);
 
     return 0;
 }
