@@ -82,13 +82,14 @@ void Quaternion_From_Stat(Drone_Status *stat) {
     q[3] = dCos[0] * dCos[1] * dSin[2] - dSin[0] * dSin[1] * dCos[2];
 
     for (i=0; i<3; ++i) mnorm[i] = stat->i2c_cali.magn_offset[i] / stat->i2c_cali.magn_abs;
+/*
     h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
     h[1] = 2* (mnorm[0]*(q[1]*q[2] + q[0]*q[3]) + mnorm[1]*(0.5 - q[1]*q[1] - q[3]*q[3]) + mnorm[2]*(q[2]*q[3] - q[0]*q[1]) );
     h[2] = 2* (mnorm[0]*(q[1]*q[3] - q[0]*q[2]) + mnorm[1]*(q[2]*q[3] + q[0]*q[1]) + mnorm[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
 //    printf("H: %f, %f, %f\n", h[0], h[1], h[2]);
     b[0] = Common_GetNorm(h, 2);
     b[2] = h[2];
-
+*/
 }
 
 void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
@@ -111,14 +112,14 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
     // Part 2 : verify if mag data can be used
     if ( ((stat->status>>10)&1)==0 ) {
 	for (i=0; i<3; ++i) mnorm[i] = stat->i2c_var.magn[i] / stat->mag_magnitude;
-/*
+
     	h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
     	h[1] = 2* (mnorm[0]*(q[1]*q[2] + q[0]*q[3]) + mnorm[1]*(0.5 - q[1]*q[1] - q[3]*q[3]) + mnorm[2]*(q[2]*q[3] - q[0]*q[1]) );
     	h[2] = 2* (mnorm[0]*(q[1]*q[3] - q[0]*q[2]) + mnorm[1]*(q[2]*q[3] + q[0]*q[1]) + mnorm[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
     	//b[0] = sqrtf((h[0]*h[0]) + (h[1]*h[1]));
 	b[0] = Common_GetNorm(h, 2);
     	b[2] = h[2];
-*/
+
 	//b[0] = sqrtf((mnorm[0]*mnorm[0]) + (mnorm[1]*mnorm[1]));
 	//b[2] = mnorm[2];
 

@@ -1,3 +1,21 @@
+/*
+    Quadcopter -- Device.c
+    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -164,8 +182,25 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[1]  = -asin(stat->i2c_cali.accl_offset[0]/stat->i2c_cali.accl_abs);			// pitch
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[0]/Common_GetNorm(stat->i2c_cali.magn_offset, 2));	// yaw
     //stat->angle[2] = atan2(stat->i2c_cali.accl_offset[2], sqrtf(stat->i2c_cali.accl_offset[0]*stat->i2c_cali.accl_offset[0] + stat->i2c_cali.accl_offset[2]*stat->i2c_cali.accl_offset[2]));
-    angle_expect[2] = stat->angle[2];
+//    angle_expect[2] = stat->angle[2];
     Quaternion_From_Stat(stat);
+    float dt_temp = 0.005;
+    for (i=0; i<3; ++i) {
+	stat->i2c_var.accl[i] = stat->i2c_cali.accl_offset[i];
+	stat->i2c_var.gyro[i] = stat->i2c_cali.gyro_offset[i];
+	stat->i2c_var.magn[i] = stat->i2c_cali.magn_offset[i];
+    }
+    stat->acc_magnitude = Common_GetNorm(stat->i2c_var.accl, 3);
+    stat->mag_magnitude = Common_GetNorm(stat->i2c_var.magn, 3);
+    stat->yaw_real = acos(stat->i2c_var.magn[0]/Common_GetNorm(stat->i2c_var.magn, 2));
+    stat->status = 0;
+
+    for (i=0; i<2000; ++i) {
+	Quaternion_renew_Drone(stat, &dt_temp);
+//	Drone_Renew(stat, &dt_temp);
+    }
+
+    printf("Start Eular Angle : %f, %f, %f\n", stat->angle[0], stat->angle[1], stat->angle[2]);
 
     thread_count = NUM_THREADS;
     puts("Drone -- Run thread!");

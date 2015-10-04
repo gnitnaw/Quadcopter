@@ -1,5 +1,5 @@
 /*
-    Quadcopter -- SPIControl.cpp
+    Quadcopter -- RF24_Interface.cpp
     Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
 
     This program is free software: you can redistribute it and/or modify

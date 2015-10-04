@@ -1,3 +1,10 @@
+ /*
+    2  Copyright (C) 2011 J. Coliz <maniacbug@ymail.com>
+    3 
+    4  This program is free software; you can redistribute it and/or
+    5  modify it under the terms of the GNU General Public License
+    6  version 2 as published by the Free Software Foundation.
+    7  */
 
 #include "compatibility.h"
 
