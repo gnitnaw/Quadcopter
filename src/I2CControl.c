@@ -76,7 +76,9 @@ int I2CVariables_end(I2CVariables *i2c_var) {
     PCA9685PW_PWMReset();
 //    pthread_mutex_unlock (&mutex_I2C);
 //    pthread_mutex_destroy(&mutex_I2C);
-    return pthread_mutex_destroy(&i2c_var->mutex);
+    pthread_mutex_destroy(&i2c_var->mutex);
+//    bcm2835_i2c_end();
+    return 0;
 }
 
 int Renew_acclgyro(I2CVariables *i2c_var) {
@@ -217,9 +219,10 @@ void Renew_PWM(I2CVariables *i2c_var) {
 void PWM_init(I2CVariables *i2c_var) {
     for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MAX;
     Renew_PWM(i2c_var);
-    usleep(800000);
+    usleep(900000);
     for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MIN;
     Renew_PWM(i2c_var);
+    usleep(2000000);
 }
 
 int Renew_PWM_read(I2CVariables *i2c_var) {

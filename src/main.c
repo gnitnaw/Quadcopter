@@ -55,7 +55,7 @@ char waitKey(void) {
     char ch;
     int a;
     while ( !kbhit() ) {
-      usleep(1000000);
+      usleep(500000);
     }
 
     iPrint = 0;

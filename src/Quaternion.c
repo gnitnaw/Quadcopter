@@ -27,7 +27,7 @@
 #define RAD_TO_DEG	(180/M_PI)
 #define G_VALUE		9.79
 #define ACCL_UNIT	0.004
-#define FILTER_YAW	1
+//#define FILTER_YAW	1
 static float q[4];
 static float half_dt;
 static float norm;
@@ -52,10 +52,14 @@ void Rotate_Vector(float A[][3], float* x, float *b) {
     }
 }
 
-void Quaternion_Euler(void) {
-    EulerAngle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
-    EulerAngle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
-    EulerAngle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
+void Quaternion_Euler(Drone_Status *stat) {
+//    EulerAngle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
+//    EulerAngle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
+//    EulerAngle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
+    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
+    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
+//    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
+    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
 }
 
 void Quaternion_From_EulerAngle(void) {
@@ -92,11 +96,23 @@ void Quaternion_From_Stat(Drone_Status *stat) {
 */
 }
 
+void Quaternion_calculate_MagField_Earth(Drone_Status *stat) {
+    for (i=0; i<3; ++i) mnorm[i] = stat->i2c_var.magn[i] / stat->mag_magnitude;
+
+    h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
+    h[1] = 2* (mnorm[0]*(q[1]*q[2] + q[0]*q[3]) + mnorm[1]*(0.5 - q[1]*q[1] - q[3]*q[3]) + mnorm[2]*(q[2]*q[3] - q[0]*q[1]) );
+    h[2] = 2* (mnorm[0]*(q[1]*q[3] - q[0]*q[2]) + mnorm[1]*(q[2]*q[3] + q[0]*q[1]) + mnorm[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
+    //b[0] = sqrtf((h[0]*h[0]) + (h[1]*h[1]));
+    b[0] = Common_GetNorm(h, 2);
+    b[2] = h[2];
+}
+
 void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
     half_dt = *deltaT/2;
     // Part 1: verify if acc data can be used
 
-    if ( ((stat->status>>7)&1)==0 && ((stat->status>>8)&1)==0 ) {
+//    if ( ((stat->status>>7)&1)==0 && ((stat->status>>8)&1)==0 ) {
+    if ( (((stat->status)>>8)&1)==0 ) {
 	for (i=0; i<3; ++i) anorm[i] = stat->i2c_var.accl[i] / stat->acc_magnitude;
     	v[0] = 2*(q[1]*q[3] - q[0]*q[2]);
     	v[1] = 2*(q[0]*q[1] + q[2]*q[3]);
@@ -111,6 +127,7 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
 
     // Part 2 : verify if mag data can be used
     if ( ((stat->status>>10)&1)==0 ) {
+/*
 	for (i=0; i<3; ++i) mnorm[i] = stat->i2c_var.magn[i] / stat->mag_magnitude;
 
     	h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
@@ -119,10 +136,10 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
     	//b[0] = sqrtf((h[0]*h[0]) + (h[1]*h[1]));
 	b[0] = Common_GetNorm(h, 2);
     	b[2] = h[2];
-
+*/
 	//b[0] = sqrtf((mnorm[0]*mnorm[0]) + (mnorm[1]*mnorm[1]));
 	//b[2] = mnorm[2];
-
+//	Quaternion_calculate_MagField_Earth(stat);
     	w[0] = 2*( b[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + b[2]*(q[1]*q[3] - q[0]*q[2]) );
     	w[1] = 2*( b[0]*(q[1]*q[2] - q[0]*q[3]) + b[2]*(q[0]*q[1] + q[2]*q[3]) );
     	w[2] = 2*( b[0]*(q[0]*q[2] + q[1]*q[3]) + b[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
@@ -147,10 +164,11 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
 
     for (i=0; i<4; ++i) q[i] /= norm;
 
-    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
-    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
+//    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
+//    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
 //    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
-    stat->angle[2] = (atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1))*FILTER_YAW + stat->yaw_real * (1.0-FILTER_YAW); // yaw
+
+    Quaternion_Euler(stat);
 
     stat->accl_ref[0] = 2*( stat->i2c_var.accl[0]*(0.5-q[2]*q[2]-q[3]*q[3]) + stat->i2c_var.accl[1]*(q[1]*q[2]-q[0]*q[3]) + stat->i2c_var.accl[2]*(q[1]*q[3]+q[0]*q[2]) );
     stat->accl_ref[1] = 2*( stat->i2c_var.accl[0]*(q[1]*q[2]+q[0]*q[3]) + stat->i2c_var.accl[1]*(0.5-q[1]*q[1]-q[3]*q[3]) + stat->i2c_var.accl[2]*(q[2]*q[3]-q[0]*q[1]) );

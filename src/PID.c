@@ -49,10 +49,22 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
 //    pwm[3] = (*power - pid->output[0] + pid->output[1] + pid->output[2] );    //M4
 //    pwm[1] = (*power + pid->output[0] - pid->output[1] + pid->output[2] );    //M2
 
-    pwm[2] = (*power + pid->output[0] - pid->output[1] - pid->output[2] );    //M3
-    pwm[0] = (*power - pid->output[0] + pid->output[1] - pid->output[2] );    //M1
-    pwm[3] = (*power + pid->output[0] + pid->output[1] + pid->output[2] );    //M4
-    pwm[1] = (*power - pid->output[0] - pid->output[1] + pid->output[2] );    //M2
+//    pwm[2] = (*power + pid->output[0] - pid->output[1] - pid->output[2] );    //M3
+//    pwm[0] = (*power - pid->output[0] + pid->output[1] - pid->output[2] );    //M1
+//    pwm[3] = (*power + pid->output[0] + pid->output[1] + pid->output[2] );    //M4
+//    pwm[1] = (*power - pid->output[0] - pid->output[1] + pid->output[2] );    //M2
 
+    pwm[0] = (*power + pid->output[1] - pid->output[0] + pid->output[2] );    //M0
+    pwm[1] = (*power - pid->output[1] - pid->output[0] - pid->output[2] );    //M3
+    pwm[2] = (*power - pid->output[1] + pid->output[0] + pid->output[2] );    //M4
+    pwm[3] = (*power + pid->output[1] + pid->output[0] - pid->output[2] );    //M1
+
+    for (i=0; i<4; ++i) {
+	if (pwm[i] > POWER_MAX) {
+	    pwm[i] = POWER_MAX;
+	} else if (pwm[i] < POWER_MIN) {
+	    pwm[i] = POWER_MIN;
+	}
+    }
 }
 
