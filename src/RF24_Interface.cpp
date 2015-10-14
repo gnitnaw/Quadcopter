@@ -22,6 +22,7 @@
 #include <RF24/RF24.h>
 
 using namespace std;
+extern int DEBUG_MODE;
 
 static RF24 radio(RPI_BPLUS_GPIO_J8_15,RPI_BPLUS_GPIO_J8_24, BCM2835_SPI_SPEED_8MHZ);
 // Radio pipe addresses for the 2 nodes to communicate.
@@ -34,7 +35,8 @@ void RF24_init(void) {
     radio.openWritingPipe(pipes[1]);
     radio.openReadingPipe(1,pipes[0]);
 
-    radio.printDetails();
+    if (DEBUG_MODE) radio.printDetails();
+
     radio.startListening();
 }
 

@@ -86,16 +86,16 @@ void Quaternion_From_Stat(Drone_Status *stat) {
     q[3] = dCos[0] * dCos[1] * dSin[2] - dSin[0] * dSin[1] * dCos[2];
 
     for (i=0; i<3; ++i) mnorm[i] = stat->i2c_cali.magn_offset[i] / stat->i2c_cali.magn_abs;
-/*
-    h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
-    h[1] = 2* (mnorm[0]*(q[1]*q[2] + q[0]*q[3]) + mnorm[1]*(0.5 - q[1]*q[1] - q[3]*q[3]) + mnorm[2]*(q[2]*q[3] - q[0]*q[1]) );
-    h[2] = 2* (mnorm[0]*(q[1]*q[3] - q[0]*q[2]) + mnorm[1]*(q[2]*q[3] + q[0]*q[1]) + mnorm[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
-//    printf("H: %f, %f, %f\n", h[0], h[1], h[2]);
-    b[0] = Common_GetNorm(h, 2);
-    b[2] = h[2];
-*/
 }
 
+void Euler_direct(Drone_Status *stat) {
+    stat->angle[0] = atan2(stat->i2c_var.accl[1], stat->i2c_var.accl[2]);               // roll
+    stat->angle[1]  = -asin(stat->i2c_var.accl[0]/stat->acc_magnitude);                     // pitch
+//    stat->angle[0] = atan2(stat->i2c_var.accl[1], sqrt(pow(stat->i2c_var.accl[0],2)+pow(stat->i2c_var.accl[2],2)) );
+//    stat->angle[1]  = atan2(stat->i2c_var.accl[0], Common_GetNorm(&stat->i2c_var.accl[1], 2));
+
+//    stat->angle[2] = acos(stat->i2c_cali.magn_offset[0]/Common_GetNorm(stat->i2c_cali.magn_offset, 2)); // yaw
+}
 void Quaternion_calculate_MagField_Earth(Drone_Status *stat) {
     for (i=0; i<3; ++i) mnorm[i] = stat->i2c_var.magn[i] / stat->mag_magnitude;
 
@@ -112,7 +112,7 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
     // Part 1: verify if acc data can be used
 
 //    if ( ((stat->status>>7)&1)==0 && ((stat->status>>8)&1)==0 ) {
-    if ( (((stat->status)>>8)&1)==0 ) {
+    if ( (((stat->status)>>8)&1)==0 && (((stat->status)>>6)&1)==0) {
 	for (i=0; i<3; ++i) anorm[i] = stat->i2c_var.accl[i] / stat->acc_magnitude;
     	v[0] = 2*(q[1]*q[3] - q[0]*q[2]);
     	v[1] = 2*(q[0]*q[1] + q[2]*q[3]);
@@ -127,19 +127,7 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
 
     // Part 2 : verify if mag data can be used
     if ( ((stat->status>>10)&1)==0 ) {
-/*
-	for (i=0; i<3; ++i) mnorm[i] = stat->i2c_var.magn[i] / stat->mag_magnitude;
-
-    	h[0] = 2* (mnorm[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + mnorm[1]*(q[1]*q[2] - q[0]*q[3]) + mnorm[2]*(q[1]*q[3] + q[0]*q[2]) );
-    	h[1] = 2* (mnorm[0]*(q[1]*q[2] + q[0]*q[3]) + mnorm[1]*(0.5 - q[1]*q[1] - q[3]*q[3]) + mnorm[2]*(q[2]*q[3] - q[0]*q[1]) );
-    	h[2] = 2* (mnorm[0]*(q[1]*q[3] - q[0]*q[2]) + mnorm[1]*(q[2]*q[3] + q[0]*q[1]) + mnorm[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
-    	//b[0] = sqrtf((h[0]*h[0]) + (h[1]*h[1]));
-	b[0] = Common_GetNorm(h, 2);
-    	b[2] = h[2];
-*/
-	//b[0] = sqrtf((mnorm[0]*mnorm[0]) + (mnorm[1]*mnorm[1]));
-	//b[2] = mnorm[2];
-//	Quaternion_calculate_MagField_Earth(stat);
+	Quaternion_calculate_MagField_Earth(stat);
     	w[0] = 2*( b[0]*(0.5 - q[2]*q[2] - q[3]*q[3]) + b[2]*(q[1]*q[3] - q[0]*q[2]) );
     	w[1] = 2*( b[0]*(q[1]*q[2] - q[0]*q[3]) + b[2]*(q[0]*q[1] + q[2]*q[3]) );
     	w[2] = 2*( b[0]*(q[0]*q[2] + q[1]*q[3]) + b[2]*(0.5 - q[1]*q[1] - q[2]*q[2]) );
@@ -169,6 +157,7 @@ void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT) {
 //    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
 
     Quaternion_Euler(stat);
+//    Euler_direct(stat);
 
     stat->accl_ref[0] = 2*( stat->i2c_var.accl[0]*(0.5-q[2]*q[2]-q[3]*q[3]) + stat->i2c_var.accl[1]*(q[1]*q[2]-q[0]*q[3]) + stat->i2c_var.accl[2]*(q[1]*q[3]+q[0]*q[2]) );
     stat->accl_ref[1] = 2*( stat->i2c_var.accl[0]*(q[1]*q[2]+q[0]*q[3]) + stat->i2c_var.accl[1]*(0.5-q[1]*q[1]-q[3]*q[3]) + stat->i2c_var.accl[2]*(q[2]*q[3]-q[0]*q[1]) );

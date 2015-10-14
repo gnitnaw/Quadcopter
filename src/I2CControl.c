@@ -99,7 +99,7 @@ int Renew_acclgyro(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);//usleep(100);
     getAccGyro(i2c_var->accl, i2c_var->gyro);
     pthread_mutex_unlock (&i2c_var->mutex);
-    delayMicroseconds(3000);
+    delayMicroseconds(2500);
 
     return 0;
 }
@@ -203,9 +203,9 @@ void Renew_PWM(I2CVariables *i2c_var) {
 	//usleep(100);
     }
     memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*4);
-    for (i_I2C=0; i_I2C<4; ++i_I2C) {
-	pwm_power[i_I2C] = i2c_var->PWM_power[i_I2C];
-    }
+//    for (i_I2C=0; i_I2C<4; ++i_I2C) {
+//	pwm_power[i_I2C] = i2c_var->PWM_power[i_I2C];
+//    }
 
     pthread_mutex_unlock (&i2c_var->mutex);
 
@@ -217,14 +217,22 @@ void Renew_PWM(I2CVariables *i2c_var) {
 }
 
 void PWM_init(I2CVariables *i2c_var) {
-    for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MAX;
-    Renew_PWM(i2c_var);
-    usleep(900000);
     for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MIN;
     Renew_PWM(i2c_var);
-    usleep(2000000);
+    usleep(5000000);
+    for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MAX;
+    Renew_PWM(i2c_var);
+    usleep(500000);
+    for (i_I2C=0; i_I2C<4; ++i_I2C) i2c_var->PWM_power[i_I2C]=POWER_MIN;
+    Renew_PWM(i2c_var);
+    usleep(3000000);
 }
 
+void PWM_reset(I2CVariables *i2c_var) {
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0);
+    PCA9685PW_PWMReset();
+    pthread_mutex_unlock (&i2c_var->mutex);
+}
 int Renew_PWM_read(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
 

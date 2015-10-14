@@ -1,19 +1,21 @@
 #include <time.h>
 #include <stdio.h>
 #include <math.h>
-//#include <string.h>
+#include <string.h>
 #include <unistd.h>
 #include <bcm2835.h>
 #include <pthread.h>
 #include <termios.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/mman.h>
 
 #include "Setup.h"
 //#include "Initialization.h"
 #include "Calibration.h"
 #include "Device.h"
 
+#define DEG_TO_RAD      (M_PI/180)
 char Pause(void) {
     char c;
     puts("Start measuring... Press Enter to continue");
@@ -50,7 +52,8 @@ int kbhit (void)
 }
 char waitKey(void);
 int power = 1640;
-int iPrint = 1;
+float angle_expect[] = {0, 0, 0};
+//int power = 2200;
 char waitKey(void) {
     char ch;
     int a;
@@ -58,35 +61,49 @@ char waitKey(void) {
       usleep(500000);
     }
 
-    iPrint = 0;
+    DEBUG_MODE = 0;
     if ( (ch = getchar()) == 'P') {
 	puts("Give me the power");
 	scanf("%d", &a);
 	if ( a<=3280 && a>=1640) power = a;
 	printf("Power = %d\n", power);
+    } else if ( ch == 'R') {
+	puts("Give me the Roll");
+	scanf("%d", &a);
+	if (a<= 20 && a>=-20) {
+	    angle_expect[0] = a * DEG_TO_RAD;
+	}
+	printf("Roll expect = %f\n", angle_expect[0]);
     }
-    iPrint = 1;
+    DEBUG_MODE = 1;
     return ch;
 }
 
 
 int main(void) {
+
+/*
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = 49;
+    sched_setscheduler(0, SCHED_FIFO, &sp);
+    mlockall(MCL_CURRENT | MCL_FUTURE);
+*/
     Drone_Status stat;
     int ret;
     char c = 'a';
     if ( (ret=Drone_init(&stat)) != 0 ) return ret;
-    puts("Start calibration!");
+    //puts("Start calibration!");
     Drone_Calibration(&stat);
     Drone_Calibration_printResult(&stat);
     Drone_Start(&stat);
 
+//    usleep(5000000);
     changemode(1);
-//    while ( !kbhit() ) {
-//      usleep(1000000);
-//    }
     do {
 	c = waitKey();
     } while (c != 'c');
+
 
 //    do {
 //        puts("Press c to stop");

@@ -37,27 +37,28 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
   	}
 	pid->angle_deriv[i] = -gyro[i];
 
-	pid->outP[i] = pid->Kp_out * pid->angle_err[i];                                                                 //方便独立观察
+	pid->outP[i] = pid->Kp_out * pid->angle_err[i];
         pid->outI[i] = pid->Ki_out * pid->angle_integ[i];
         pid->outD[i] = pid->Kd_out * pid->angle_deriv[i];
 
         pid->output[i] = (int) round(pid->outP[i] + pid->outI[i] + pid->outD[i]);
     }
 
-//    pwm[2] = (*power - pid->output[0] - pid->output[1] - pid->output[2] );    //M3
-//    pwm[0] = (*power + pid->output[0] + pid->output[1] - pid->output[2] );    //M1
-//    pwm[3] = (*power - pid->output[0] + pid->output[1] + pid->output[2] );    //M4
-//    pwm[1] = (*power + pid->output[0] - pid->output[1] + pid->output[2] );    //M2
+//    pwm[0] = (*power + pid->output[1] - pid->output[0] + pid->output[2] );    //M0
+//    pwm[1] = (*power - pid->output[1] - pid->output[0] - pid->output[2] );    //M1
+//    pwm[2] = (*power - pid->output[1] + pid->output[0] + pid->output[2] );    //M2
+//    pwm[3] = (*power + pid->output[1] + pid->output[0] - pid->output[2] );    //M3
 
-//    pwm[2] = (*power + pid->output[0] - pid->output[1] - pid->output[2] );    //M3
-//    pwm[0] = (*power - pid->output[0] + pid->output[1] - pid->output[2] );    //M1
-//    pwm[3] = (*power + pid->output[0] + pid->output[1] + pid->output[2] );    //M4
-//    pwm[1] = (*power - pid->output[0] - pid->output[1] + pid->output[2] );    //M2
-
-    pwm[0] = (*power + pid->output[1] - pid->output[0] + pid->output[2] );    //M0
-    pwm[1] = (*power - pid->output[1] - pid->output[0] - pid->output[2] );    //M3
-    pwm[2] = (*power - pid->output[1] + pid->output[0] + pid->output[2] );    //M4
-    pwm[3] = (*power + pid->output[1] + pid->output[0] - pid->output[2] );    //M1
+/*
+    pwm[0] = (*power - pid->output[0] + pid->output[1]);    //M0
+    pwm[1] = (*power - pid->output[0] - pid->output[1]);    //M1
+    pwm[2] = (*power + pid->output[0] - pid->output[1]);    //M2
+    pwm[3] = (*power + pid->output[0] + pid->output[1]);    //M3
+*/
+    pwm[0] = (*power - pid->output[0]);    //M0
+    pwm[1] = (*power - pid->output[0]);    //M1
+    pwm[2] = (*power + pid->output[0]);    //M2
+    pwm[3] = (*power + pid->output[0]);    //M3
 
     for (i=0; i<4; ++i) {
 	if (pwm[i] > POWER_MAX) {

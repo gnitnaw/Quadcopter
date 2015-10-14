@@ -59,5 +59,6 @@ int Renew_baro(I2CVariables *i2c_var);
 void PWM_init(I2CVariables *i2c_var);
 void Renew_PWM(I2CVariables *i2c_var);
 int Renew_PWM_read(I2CVariables *i2c_var);
+void PWM_reset(I2CVariables *i2c_var);
 
 #endif
