@@ -10,6 +10,7 @@ typedef struct {
     float Kp_out, Ki_out, Kd_out;
     float Kp_filter, Ki_filter;
 
+    float angle_before[3];
     float angle_err[3];
     float angle_deriv[3];
     float angle_integ[3];

@@ -35,12 +35,12 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
   	} else if (pid->angle_integ[i] < -INTEG_LIMIT) {
     	    pid->angle_integ[i] = -INTEG_LIMIT;
   	}
-	pid->angle_deriv[i] = -gyro[i];
-
+	//pid->angle_deriv[i] = -gyro[i];
+	pid->angle_deriv[i] = (pid->angle_before[i] - angle_measured[i]) / *dt;
 	pid->outP[i] = pid->Kp_out * pid->angle_err[i];
         pid->outI[i] = pid->Ki_out * pid->angle_integ[i];
         pid->outD[i] = pid->Kd_out * pid->angle_deriv[i];
-
+	pid->angle_before[i] = angle_measured[i];
         pid->output[i] = (int) round(pid->outP[i] + pid->outI[i] + pid->outD[i]);
     }
 

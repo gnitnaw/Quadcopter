@@ -36,7 +36,7 @@
 #define RAD_TO_DEG      (180/M_PI)
 #define NOPWM
 //#define LOGFILENAME	"Kp_480_250_9.dat"
-#define LOGFILENAME   "Silence4.dat"
+#define LOGFILENAME   "Silence5.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
@@ -82,7 +82,7 @@ void* Renew_accgyr_cycle(void *data) {
 	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
 	pthread_mutex_unlock (&stat->i2c_var.mutex);
-	if ( iDetect%3 ) {
+	if ( iDetect%5 == 0 ) {
 	    T += dT_PWM;
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
 	    fprintf(fp, "%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\n", T, RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2],
