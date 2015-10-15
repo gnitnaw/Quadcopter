@@ -15,8 +15,8 @@ float mag_offset[]	= {-276.919983, -137.080002, -82.799988};
 float mag_gain[] 	= {1.000000, 0.992958, 1.128000};
 float v_input		= 5.3;
 
-float Kp		= 2.0; //3.5
-float Ki		= 0.006; // 0.001
+float Kp		= 3.5 ;//2.0; //3.5
+float Ki		= 0.001; //0.006; // 0.001
 float Kd		= 0;
 
 //float pid_setting[]	= {20, 0, 0, 400, 0, 0, 20.0, 0.005};

@@ -26,9 +26,8 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_permute_vector.h>
 #include <gsl/gsl_blas.h>
-
 #include <gsl/gsl_linalg.h>
-
+//#include "lu.h"
 #define REAL float
 static int singular_float (const gsl_matrix_float * LU);
 
@@ -204,7 +203,8 @@ gsl_linalg_LU_svx_float (const gsl_matrix_float * LU, const gsl_permutation * p,
 
 
 int
-gsl_linalg_LU_refine_float (const gsl_matrix_float * A, const gsl_matrix_float * LU, const gsl_permutation * p, const gsl_vector_float * b, gsl_vector_float * x, gsl_vector_float * residual)
+gsl_linalg_LU_refine_float (const gsl_matrix_float * A, const gsl_matrix_float * LU, const gsl_permutation * p, const gsl_vector_float * b,
+gsl_vector_float * x, gsl_vector_float * residual)
 {
   if (A->size1 != A->size2)
     {

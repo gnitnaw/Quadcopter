@@ -34,9 +34,9 @@
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
 #define RAD_TO_DEG      (180/M_PI)
-//#define NOPWM
-#define LOGFILENAME	"Kp_480_250_9.dat"
-//#define LOGFILENAME   "Silence3.dat"
+#define NOPWM
+//#define LOGFILENAME	"Kp_480_250_9.dat"
+#define LOGFILENAME   "Silence4.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
@@ -59,6 +59,7 @@ extern float angle_expect[3];
 //static float angle_expect[] = {0, 0, 0};
 static FILE *fp;
 static float T = 0;
+static float ekf_ang[3];
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
     clock_gettime(CLOCK_REALTIME, &tp1);
@@ -84,9 +85,9 @@ void* Renew_accgyr_cycle(void *data) {
 	if ( iDetect%3 ) {
 	    T += dT_PWM;
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
-	    fprintf(fp, "%f\t%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\n", T, RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2], RAD_TO_DEG*angle_expect[0],
+	    fprintf(fp, "%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\n", T, RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2],
 		stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3],
-		stat->gyro_corr[0], stat->gyro_corr[1], stat->gyro_corr[2]);
+		stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
 	    dT_PWM = 0.0;
 #ifndef NOPWM
             Renew_PWM(&stat->i2c_var);
@@ -193,10 +194,12 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[0] = atan2(stat->i2c_cali.accl_offset[1], stat->i2c_cali.accl_offset[2]); 		// roll
 //    stat->angle[1]  = -asin(stat->i2c_cali.accl_offset[0]/stat->i2c_cali.accl_abs);			// pitch
 //    stat->angle[0] = atan2(stat->i2c_cali.accl_offset[1], sqrt(pow(stat->i2c_cali.accl_offset[0],2)+pow(stat->i2c_cali.accl_offset[2],2)) );
-    stat->angle[1]  = atan2(stat->i2c_cali.accl_offset[0], Common_GetNorm(&stat->i2c_cali.accl_offset[1], 2));
+    stat->angle[1]  = atan2(stat->i2c_cali.accl_offset[0], Common_GetNorm(stat->i2c_cali.accl_offset, 3));
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[1]/Common_GetNorm(stat->i2c_cali.magn_offset, 2));	// yaw
     //stat->angle[2] = atan2(stat->i2c_cali.accl_offset[2], sqrtf(stat->i2c_cali.accl_offset[0]*stat->i2c_cali.accl_offset[0] + stat->i2c_cali.accl_offset[2]*stat->i2c_cali.accl_offset[2]));
     Quaternion_From_Stat(stat);
+//    EKF_Init(&stat->ekf, &stat->i2c_cali);
+
     float dt_temp = 0.005;
     for (i=0; i<3; ++i) {
 	stat->i2c_var.accl[i] = stat->i2c_cali.accl_offset[i];
@@ -284,6 +287,8 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     stat->status = ret;
 
     Quaternion_renew_Drone(stat, deltaT);
+//    EFK_Update(&stat->ekf, &stat->i2c_var, deltaT);
+//    EKF_Quaternion_Euler(&stat->ekf, ekf_ang);
 //    T += *deltaT;
 //    fprintf(fp, "%f\t%f\t%f\t%f\n",T, RAD_TO_DEG*stat->angle[0], RAD_TO_DEG*stat->angle[1], RAD_TO_DEG*stat->angle[2]);
 //    pthread_mutex_unlock (&stat->i2c_var.mutex);

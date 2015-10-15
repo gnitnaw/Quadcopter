@@ -2,11 +2,13 @@
 #define H_DEVICE
 #include "I2CControl.h"
 #include "SPIControl.h"
+#include "EKF.h"
 
 typedef struct {
     I2CVariblesCali i2c_cali;
     I2CVariables i2c_var;
     SPIVariables spi_var;
+//    EKF_Filter ekf;
 //    PIDControl pid;
 //    float accl[3], gyro[3], magn[3], altitude;
     float accl_ref[3], gyro_corr[3], altitude_corr; //altitude_zero, gyro_zero[3];
