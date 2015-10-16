@@ -15,13 +15,13 @@ float mag_offset[]	= {-276.919983, -137.080002, -82.799988};
 float mag_gain[] 	= {1.000000, 0.992958, 1.128000};
 float v_input		= 5.3;
 
-float Kp		= 3.5 ;//2.0; //3.5
-float Ki		= 0.005; //0.006; // 0.001
+float Kp		= 2.0 ;//2.0; //3.5
+float Ki		= 0.006; //0.006; // 0.001
 float Kd		= 0;
 
 //float pid_setting[]	= {20, 0, 0, 400, 0, 0, 20.0, 0.005};
 //float pid_setting[]   = {20, 0, 0, 140, 2, 80, 30.0, 10};
-float pid_setting[]   = {20, 0, 0, 480, 9, 250, 15.0, 4};
+float pid_setting[]   = {20, 0, 0, 9, 0.1, 200, 15.0, 4};
 
 #endif
 
@@ -37,3 +37,4 @@ float pid_setting[]   = {20, 0, 0, 480, 9, 250, 15.0, 4};
 // 360, 7, 130 Good
 // 490 is too much
 // 470 300 9 is good
+// 10/16 : 480 9 250 is too much

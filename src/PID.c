@@ -21,6 +21,7 @@
 #include "PID.h"
 
 static int i;
+static float gyro_mean[] = {0,0,0};
 void PID_init(PIDControl *pid, float* pid_setting) {
     memset(pid, 0, sizeof(PIDControl));
     memcpy(pid, pid_setting, sizeof(float)*8);
@@ -28,6 +29,7 @@ void PID_init(PIDControl *pid, float* pid_setting) {
 
 void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, float* gyro, int *pwm, float *dt, int* power) {
     for (i=0; i<3; ++i) {
+	gyro_mean[i] = gyro_mean[i] * 0.5 + gyro[i] * 0.5;
 	pid->angle_err[i] = angle_expect[i] - angle_measured[i];
 	pid->angle_integ[i] += gyro[i] * *dt;
 	if (pid->angle_integ[i] > INTEG_LIMIT) {
@@ -35,12 +37,13 @@ void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, flo
   	} else if (pid->angle_integ[i] < -INTEG_LIMIT) {
     	    pid->angle_integ[i] = -INTEG_LIMIT;
   	}
-	//pid->angle_deriv[i] = -gyro[i];
-	pid->angle_deriv[i] = (pid->angle_before[i] - angle_measured[i]) / *dt;
+	pid->angle_deriv[i] = -gyro[i];
+	//pid->angle_deriv[i] = -gyro_mean[i];
+	//pid->angle_deriv[i] = (pid->angle_before[i] - angle_measured[i]) / *dt;
 	pid->outP[i] = pid->Kp_out * pid->angle_err[i];
         pid->outI[i] = pid->Ki_out * pid->angle_integ[i];
         pid->outD[i] = pid->Kd_out * pid->angle_deriv[i];
-	pid->angle_before[i] = angle_measured[i];
+	//pid->angle_before[i] = angle_measured[i];
         pid->output[i] = (int) round(pid->outP[i] + pid->outI[i] + pid->outD[i]);
     }
 

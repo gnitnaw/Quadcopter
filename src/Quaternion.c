@@ -56,17 +56,17 @@ void Quaternion_Euler(Drone_Status *stat) {
 //    EulerAngle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
 //    EulerAngle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
 //    EulerAngle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
-    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1); // roll
-    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]); // pitch
+    stat->angle[0] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], -2 * q[1] * q[1] - 2 * q[2]* q[2] + 1) * RAD_TO_DEG; // roll
+    stat->angle[1] = asin(-2 * q[1] * q[3] + 2 * q[0]* q[2]) * RAD_TO_DEG; // pitch
 //    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
-    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1); // yaw
+    stat->angle[2] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], -2 * q[2]*q[2] - 2 * q[3]*q[3] + 1) * RAD_TO_DEG; // yaw
 }
 
 void Quaternion_From_EulerAngle(void) {
     float dCos[3], dSin[3];
     for (i=0; i<3; ++i) {
-	dCos[i] = cos(EulerAngle[i] * 0.5);
-	dSin[i] = sin(EulerAngle[i] * 0.5);
+	dCos[i] = cos(EulerAngle[i]*DEG_TO_RAD * 0.5);
+	dSin[i] = sin(EulerAngle[i]*DEG_TO_RAD * 0.5);
     }
     q[0] = dCos[0] * dCos[1] * dCos[2] + dSin[0] * dSin[1] * dSin[2];
     q[1] = dSin[0] * dCos[1] * dCos[2] - dCos[0] * dSin[1] * dSin[2];

@@ -89,7 +89,7 @@ void ADXL345_init(int k) {
         bcm2835_i2c_write(regaddr,2);
 
         regaddr[0] = ADXL345_DATA_FORMAT;		// Full resolution
-	regaddr[1] = 0x09;
+	regaddr[1] = 0x08;
 //        regaddr[1] = 0x0A;
         bcm2835_i2c_write(regaddr,2);
 

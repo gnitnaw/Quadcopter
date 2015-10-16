@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/mman.h>
-
+#include "I2CControl.h"
 #include "Setup.h"
 //#include "Initialization.h"
 #include "Calibration.h"
@@ -89,6 +89,8 @@ int main(void) {
     sched_setscheduler(0, SCHED_FIFO, &sp);
     mlockall(MCL_CURRENT | MCL_FUTURE);
 */
+//    PCA9685PW_init(1);
+
     Drone_Status stat;
     int ret;
     char c = 'a';
