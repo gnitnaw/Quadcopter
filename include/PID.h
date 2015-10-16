@@ -1,9 +1,9 @@
 #ifndef H_PID
 #define	H_PID
 
-#define	POWER_MIN	1640
-#define	POWER_MAX	3280
-#define	POWER_LIMIT	3000
+#define	POWER_MIN	820
+#define	POWER_MAX	1640
+#define	POWER_LIMIT	1640
 #define INTEG_LIMIT	20
 typedef struct {
     float Kp_in, Ki_in, Kd_in;

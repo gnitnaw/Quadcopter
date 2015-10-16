@@ -6,7 +6,7 @@ int ADXL345_RATE	=	400;
 int L3G4200D_RATE	=	400;
 int L3G4200D_RANGE	=	250;
 int HMC5883L_RATE	=	75;
-int PCA9685PW_FREQ	=	400;
+int PCA9685PW_FREQ	=	200;
 
 int PWM_CHANNEL[]	= {0,1,2,3};
 //float mag_offset[]	= {-270, -115.5, 20.5};

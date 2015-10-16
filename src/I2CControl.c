@@ -208,7 +208,7 @@ void Renew_PWM(I2CVariables *i2c_var) {
 //    }
 
     pthread_mutex_unlock (&i2c_var->mutex);
-
+    
     while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
 
     pca9685PWMWriteMultiOff(PWM_CHANNEL, pwm_power, NPWM);
