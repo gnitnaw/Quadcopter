@@ -29,6 +29,8 @@
 #include "Quaternion.h"
 #include "Calibration.h"
 #include "PID.h"
+#include "PCA9685PW.h"
+#include "GY80.h"
 
 #define NUM_THREADS	4
 #define ACC_UNIT        9.79
@@ -36,13 +38,12 @@
 #define RAD_TO_DEG      (180/M_PI)
 #define NOPWM
 //#define LOGFILENAME	"Kp_9_200_01.dat"
-#define LOGFILENAME   "Silence5.dat"
+#define LOGFILENAME   "DF.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
 static unsigned int thread_count;
-
-static int ret, i;
+static int ret;
 static float factor;
 static unsigned long iDetect = 0;
 extern unsigned short THROTTLE;
@@ -59,7 +60,6 @@ extern float angle_expect[3];
 //static float angle_expect[] = {0, 0, 0};
 static FILE *fp;
 static float T = 0;
-//static float ekf_ang[3];
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
     clock_gettime(CLOCK_REALTIME, &tp1);
@@ -72,6 +72,7 @@ void* Renew_accgyr_cycle(void *data) {
         deltaT = (float)procesTime/1000000000.0;
 	dT_PWM += deltaT;
 	while (pthread_mutex_trylock(&stat->i2c_var.mutex) != 0) bcm2835_delayMicroseconds(100);
+	//Filter_AcclGyro(stat->i2c_var.accl, stat->i2c_var.gyro);
 	Drone_Renew(stat, &deltaT);
         if (iDetect%100==0 && DEBUG_MODE){
             //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
@@ -85,9 +86,11 @@ void* Renew_accgyr_cycle(void *data) {
 	if ( iDetect%2 == 0 ) {
 	    T += dT_PWM;
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
-	    fprintf(fp, "%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\n", T, stat->angle[0], stat->angle[1], stat->angle[2],
+	    fprintf(fp, "%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", T, stat->angle[0], stat->angle[1], stat->angle[2],
 		stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3],
-		stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
+		stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG,
+		stat->i2c_var.accl[0], stat->i2c_var.accl[1],stat->i2c_var.accl[2],
+		stat->accl_est[0], stat->accl_est[1], stat->accl_est[2]);
 	    dT_PWM = 0.0;
 #ifndef NOPWM
             Renew_PWM(&stat->i2c_var);
@@ -147,11 +150,11 @@ int Drone_init(Drone_Status *stat) {
     bcm2835_i2c_begin();
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);         // 400 kHz
 
-    ADXL345_init(1);
-    L3G4200D_init(1);
-    HMC5883L_init(1);
-    BMP085_init(1);
-    PCA9685PW_init(1);
+    ADXL345_init();
+    L3G4200D_init();
+    HMC5883L_init();
+    BMP085_init();
+    PCA9685PW_init();
 
     I2CVariables_init(&stat->i2c_var);
 
@@ -188,9 +191,8 @@ void Drone_Calibration_printResult(Drone_Status *stat) {
 }
 
 void Drone_Start(Drone_Status *stat) {
+    int i;
     stat->altitude_corr = 0.0;
-    stat->accl_err = Common_GetNorm(stat->i2c_cali.accl_sd, 3);
-    stat->magn_err = Common_GetNorm(stat->i2c_cali.magn_sd, 3);
     stat->angle[0] = atan2(stat->i2c_cali.accl_offset[1], stat->i2c_cali.accl_offset[2]) * RAD_TO_DEG; 		// roll
 //    stat->angle[1]  = -asin(stat->i2c_cali.accl_offset[0]/stat->i2c_cali.accl_abs);			// pitch
 //    stat->angle[0] = atan2(stat->i2c_cali.accl_offset[1], sqrt(pow(stat->i2c_cali.accl_offset[0],2)+pow(stat->i2c_cali.accl_offset[2],2)) );
@@ -217,6 +219,7 @@ void Drone_Start(Drone_Status *stat) {
 	Quaternion_renew_Drone(stat, &dt_temp);
     }
 
+    Filter_init() ;
 //    angle_expect[0] = 0.0;
 //    angle_expect[1] = 0.0;
 //    angle_expect[2] = stat->angle[2];
@@ -245,6 +248,7 @@ void Drone_Start(Drone_Status *stat) {
 }
 
 void Drone_Renew(Drone_Status *stat, float* deltaT) {
+    int i;
     ret = 0;
     // Check data quality
 //    while (pthread_mutex_trylock(&stat->i2c_var.mutex) != 0) bcm2835_delayMicroseconds(100);
@@ -268,15 +272,9 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     stat->acc_magnitude = Common_GetNorm(stat->i2c_var.accl, 3);
     stat->mag_magnitude = Common_GetNorm(stat->i2c_var.magn, 3);
     stat->yaw_real = acos(stat->i2c_var.magn[0]/Common_GetNorm(stat->i2c_var.magn, 2));
-    if ( (factor = fabsf(stat->acc_magnitude - stat->i2c_cali.accl_abs ) ) >  stat->accl_err * 3 ) {
-        ret |= (1<<7);                                                                                  // Means this accl value should not be used into filter
-        if ( (factor=stat->acc_magnitude/stat->i2c_cali.accl_abs)>2.5 || factor < 0.5 ) ret |= (1<<6);                        // Data may be incorrect
-    }
+    if ( (factor=stat->acc_magnitude/stat->i2c_cali.accl_abs)>2.5 || factor < 0.5 ) ret |= (1<<6);                        // Data may be incorrect
 
-    if ( (factor = fabsf(stat->mag_magnitude - stat->i2c_cali.magn_abs ) ) >  stat->magn_err * 3 ) {
-        ret |= (1<<5);                                                                                  // Means this accl value should not be used into filter
-        if ( (factor=stat->mag_magnitude/stat->i2c_cali.magn_abs)>1.5 || factor < 0.5 ) ret |= (1<<4);                        // Data may be incorrect
-    }
+    if ( (factor=stat->mag_magnitude/stat->i2c_cali.magn_abs)>1.5 || factor < 0.5 ) ret |= (1<<4);                        // Data may be incorrect
 
     for (i=0; i<3; ++i) stat->gyro_corr[i] = stat->i2c_var.gyro[i] - stat->i2c_cali.gyro_offset[i];
 //    for (i=0; i<3; ++i) stat->gyro_corr[i] = stat->i2c_var.gyro[i];
@@ -285,6 +283,7 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     }
 
     stat->status = ret;
+    Drone_NoiseFilter(stat) ;
 
     Quaternion_renew_Drone(stat, deltaT);
 //    EFK_Update(&stat->ekf, &stat->i2c_var, deltaT);
@@ -294,3 +293,10 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
 //    pthread_mutex_unlock (&stat->i2c_var.mutex);
 }
 
+void Drone_NoiseFilter(Drone_Status *stat) {
+    int i;
+    for (i=0; i<3; ++i) {
+	Filter_renew(&stat->filter_acc[i], &stat->i2c_var.accl[i], &stat->accl_est[i], &iDetect) ;
+	Filter_renew(&stat->filter_gyr[i], &stat->i2c_var.gyro[i], &stat->gyro_est[i], &iDetect) ;
+    }
+}

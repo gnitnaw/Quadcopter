@@ -21,14 +21,13 @@
 #include <unistd.h>
 #include <bcm2835.h>
 #include "I2CControl.h"
+#include "PCA9685PW_Address.h"
 #include "PCA9685PW.h"
 
 extern int PCA9685PW_FREQ;
 static char regaddr[2];
 static char databuf[4];
-static int i, ret_PWM;
-int PCA9685PWMFreq(void);
-void PCA9685PW_PWMReset(void);
+static int ret_PWM;
 
 int baseReg(int pin) {
     return PCA9685PW_LED0_ON_L + pin * 4;
@@ -38,36 +37,32 @@ int baseRegOff(int pin) {
     return PCA9685PW_LED0_OFF_L + pin * 4;
 }
 
-void PCA9685PW_init(int k) {
-    if (k != 0 && k != 1) {
-        puts("MUST BE 0 or 1 !");
+void PCA9685PW_switch(void) {
+    bcm2835_i2c_setSlaveAddress(PCA9685PW_ADDR);
+}
+void PCA9685PW_init(void) {
+    PCA9685PW_switch();
+
+    regaddr[0] = PCA9685PW_MODE1;
+    regaddr[1] = 0x00;
+    bcm2835_i2c_write(regaddr, 2);
+
+    regaddr[0] = PCA9685PW_MODE2;
+    regaddr[1] = PCA9685PW__OUTDRV;
+    bcm2835_i2c_write(regaddr, 2);
+
+    if ((ret_PWM = PCA9685PWMFreq())!=0) {
+        printf("Parameters of PCA9685PW are not correctly loaded -- code %d", ret_PWM);
         return;
     }
-    bcm2835_i2c_setSlaveAddress(PCA9685PW_ADDR);
 
-    if (k==1) {
-        regaddr[0] = PCA9685PW_MODE1;
-        regaddr[1] = 0x00;
-        bcm2835_i2c_write(regaddr, 2);
-
-        regaddr[0] = PCA9685PW_MODE2;
-        regaddr[1] = PCA9685PW__OUTDRV;
-	bcm2835_i2c_write(regaddr, 2);
-
-	if ((ret_PWM = PCA9685PWMFreq())!=0) {
-            printf("Parameters of PCA9685PW are not correctly loaded -- code %d", ret_PWM);
-            return;
-	}
-
-	PCA9685PW_PWMReset();
-    }
+    PCA9685PW_PWMReset();
 }
 
 int PCA9685PWMFreq(void) {
-    PCA9685PW_init(0);
+    PCA9685PW_switch();
     PCA9685PW_FREQ = (PCA9685PW_FREQ > 1526 ? 1526 : (PCA9685PW_FREQ < 24 ? 24 : PCA9685PW_FREQ));
     int prescale = (int)(25000000.0f / (4096 * PCA9685PW_FREQ) - 0.5f);
-//    printf("%02X\n", prescale);
     regaddr[0] = PCA9685PW_MODE1;
     regaddr[1] = 0;
     bcm2835_i2c_write(regaddr, 1);
@@ -94,7 +89,7 @@ int PCA9685PWMFreq(void) {
 }
 
 void PCA9685PW_PWMReset(void) {				// == All turn off
-    PCA9685PW_init(0);
+    PCA9685PW_switch();
 
     regaddr[0] = PCA9685PW_ALL_LED_ON_L;                       // Restore the setting
     regaddr[1] = 0x00;
@@ -115,7 +110,8 @@ void PCA9685PW_PWMReset(void) {				// == All turn off
 
 
 int pca9685PWMReadSingle(int pin, int *data) {
-    PCA9685PW_init(0);
+    int i;
+    PCA9685PW_switch();
     regaddr[0] = baseReg(pin);
 
     for (i=0; i<4; ++i) {
@@ -131,7 +127,8 @@ int pca9685PWMReadSingle(int pin, int *data) {
 }
 
 int pca9685PWMReadSingleOff(int pin, int *off) {
-    PCA9685PW_init(0);
+    int i;
+    PCA9685PW_switch();
     regaddr[0] = baseReg(pin)+2;
     for (i=0; i<2; ++i) {
         bcm2835_i2c_write(regaddr, 1);
@@ -145,9 +142,8 @@ int pca9685PWMReadSingleOff(int pin, int *off) {
 
 
 int pca9685PWMReadMulti(int* pin, int data[][2], int num) {
-    int j;
-    PCA9685PW_init(0);
-
+    int i, j;
+    PCA9685PW_switch();
     for (i=0; i<num; ++i) {
 	regaddr[0] = baseReg(pin[i]);
 	for (j=0; j<4; ++j) {
@@ -164,9 +160,8 @@ int pca9685PWMReadMulti(int* pin, int data[][2], int num) {
 }
 
 int pca9685PWMReadMultiOff(int *pin, int *data, int num) {  // if pin = 0, num = 3, data will be : off_0, off_1, off_2
-    int j;
-    PCA9685PW_init(0);
-
+    int i, j;
+    PCA9685PW_switch();
     for (i=0; i<num; ++i) {
 	regaddr[0] = baseReg(pin[i])+2;
         for (j=0; j<2; ++j) {
@@ -181,7 +176,7 @@ int pca9685PWMReadMultiOff(int *pin, int *data, int num) {  // if pin = 0, num =
 }
 
 void pca9685PWMWriteSingle(int pin, int* data) {
-    PCA9685PW_init(0);
+    PCA9685PW_switch();
     regaddr[0] = baseReg(pin);
     regaddr[1] = data[0]&0xFF;
     bcm2835_i2c_write(regaddr, 2);
@@ -200,8 +195,7 @@ void pca9685PWMWriteSingle(int pin, int* data) {
 }
 
 void pca9685PWMWriteSingleOff(int pin, int off) {
-    PCA9685PW_init(0);
-
+    PCA9685PW_switch();
     regaddr[0] = baseReg(pin)+2;
     regaddr[1] = off&0xFF;
     bcm2835_i2c_write(regaddr, 2);
@@ -213,10 +207,9 @@ void pca9685PWMWriteSingleOff(int pin, int off) {
 }
 
 void pca9685PWMWriteMulti(int *pin, int data[][2], int num) { // if pin = 0, num = 3, data will be : on_0, off_0, on_1, off_1, on_2, off_2
-    int j;
+    int i, j;
 
-    PCA9685PW_init(0);
-
+    PCA9685PW_switch();
     for (i=0; i<num; ++i) {
 	regaddr[0] = baseReg(pin[i]);
         for (j=0; j<2; ++j) {
@@ -231,8 +224,8 @@ void pca9685PWMWriteMulti(int *pin, int data[][2], int num) { // if pin = 0, num
 }
 
 void pca9685PWMWriteMultiOff(int *pin, int *data, int num) { // if pin = 0, num = 3, data will be : off_0, off_1, off_2
-    PCA9685PW_init(0);
-
+    PCA9685PW_switch();
+    int i;
     for (i=0; i<num; ++i) {
 	regaddr[0] = baseReg(pin[i])+2;
         regaddr[1] = data[i] &0xFF;

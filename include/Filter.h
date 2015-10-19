@@ -17,6 +17,3 @@ typedef struct
     float P_EC_estimated;
 } Kalman;
 
-extern int ADXL345_getRealData(float *accl);
-extern int L3G4200D_getRealData(float *gyro);
-extern int HMC5883L_getRealData(float *magn);

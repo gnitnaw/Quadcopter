@@ -2,22 +2,14 @@
 #define H_I2CCONTROL
 
 #include <pthread.h>
+#include "GY80.h"
 #include "PID.h"
-// Slave address
-#define ADXL345_ADDR            0x53            // 3 Axis Accelerometer         Analog Devices ADXL345 
-#define L3G4200D_ADDR           0x69            // 3 Axis Gyro                  ST Microelectronics L3G4200D
-#define HMC5883L_ADDR           0x1E            // 3 Axis Magnetometer          Honeywell HMC5883L
-#define BMP085_ADDR             0x77            // Barometer + Thermometer      Bosch BMP085
-#define PCA9685PW_ADDR          0x40		// PWM				PCA9685PW
+#include "PCA9685PW.h"
 
-int pca9685PWMReadSingle(int pin, int *data);
-int pca9685PWMReadSingleOff(int pin, int *off);
-int pca9685PWMReadMulti(int* pin, int data[][2], int num);
-int pca9685PWMReadMultiOff(int* pin, int *data, int num);
-void pca9685PWMWriteSingle(int pin, int* data);
-void pca9685PWMWriteSingleOff(int pin, int off);
-void pca9685PWMWriteMulti(int *pin, int data[][2], int num);
-void pca9685PWMWriteMultiOff(int *pin, int *data, int num);
+typedef struct {
+    short accl[3], gyro[3], magn[3];
+    long UT, UP;
+} I2CRawDada;
 
 typedef struct {
     pthread_mutex_t mutex;
@@ -25,7 +17,6 @@ typedef struct {
     float RTD, altitude;
     long RP;
     int ret[3];
-//    int PWM_pin[4];
     PIDControl pid;
     int PWM_power[4];
 } I2CVariables;
@@ -43,12 +34,6 @@ typedef struct {
     char c;
 } I2CCaliThread;
 
-
-void ADXL345_init(int k);
-void L3G4200D_init(int k);
-void HMC5883L_init(int k);
-void BMP085_init(int k);
-void PCA9685PW_init(int k);
 
 void I2CVariables_init(I2CVariables *i2c_var);
 int I2CVariables_end(I2CVariables *i2c_var);
