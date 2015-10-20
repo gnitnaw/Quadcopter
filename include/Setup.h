@@ -3,7 +3,7 @@
 
 int DEBUG_MODE		=	1;
 int ADXL345_RATE	=	400;
-int ADXL345_RANGE       =       2;
+int ADXL345_RANGE       =       4;
 int L3G4200D_RATE	=	400;
 int L3G4200D_RANGE	=	250;
 int HMC5883L_RATE	=	75;
@@ -16,10 +16,11 @@ float mag_offset[]	= {-276.919983, -137.080002, -82.799988};
 float mag_gain[] 	= {1.000000, 0.992958, 1.128000};
 float v_input		= 5.3;
 
-float Kp		= 3.5 ;//2.0; //3.5
-float Ki		= 0.006; //0.006; // 0.001
-float Kd		= 0;
+//float Kp		= 3.5 ;//2.0; //3.5
+//float Ki		= 0.006; //0.006; // 0.001
+//float Kd		= 0;
 
+float pi[] = {3.5,0.006};
 //float pid_setting[]	= {20, 0, 0, 400, 0, 0, 20.0, 0.005};
 //float pid_setting[]   = {20, 0, 0, 140, 2, 80, 30.0, 10};
 float pid_setting[]   = {20, 0, 0, 9, 0.1, 200, 15.0, 4};
