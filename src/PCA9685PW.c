@@ -23,6 +23,7 @@
 #include "I2CControl.h"
 #include "PCA9685PW_Address.h"
 #include "PCA9685PW.h"
+#include "Common.h"
 
 extern int PCA9685PW_FREQ;
 static char regaddr[2];
@@ -80,7 +81,7 @@ int PCA9685PWMFreq(void) {
     regaddr[1] = databuf[0];
     bcm2835_i2c_write(regaddr, 2);
 
-    usleep(5000);
+    _usleep(5000);
 
     regaddr[1] = databuf[0] | PCA9685PW__RESTART;	// Restart
     bcm2835_i2c_write(regaddr, 2);

@@ -47,6 +47,11 @@ void AHRS_init(AHRS* ahrs, float* angle, float* pi) {
     ahrs->Ki = pi[1];
 }
 
+void AHRS_setPI(AHRS* ahrs, float Kp, float Ki) {
+    ahrs->Kp = Kp;
+    ahrs->Ki = Ki;
+}
+
 void AHRS_getAngle(AHRS* ahrs, float* angle) {
     angle[0] = atan2(2 * ahrs->q[2]*ahrs->q[3] + 2 * ahrs->q[0]*ahrs->q[1], -2 * ahrs->q[1]*ahrs->q[1] - 2 * ahrs->q[2]*ahrs->q[2] + 1) * RAD_TO_DEG; // roll
     angle[1] = asin(-2 * ahrs->q[1]*ahrs->q[3] + 2 * ahrs->q[0]*ahrs->q[2]) * RAD_TO_DEG; // pitch

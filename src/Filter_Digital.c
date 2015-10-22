@@ -11,7 +11,7 @@ void Filter_init(void) {
 }
 
 void Filter_renew(Filter_Digital *f, float *rawdata, float *estimated, unsigned long *N) {
-    if (*N<2) {
+    if (*N<50) {
 	*estimated = *rawdata;
     } else {
 	*estimated = -B1/B2*f->estimated_previous[0] -B0/B2*f->estimated_previous[1] + 1/B2*(*rawdata);

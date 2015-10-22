@@ -115,7 +115,7 @@ void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
 
     do {
 	__sync_synchronize();
-	usleep(1000000);
+	_usleep(1000000);
     } while (thread_count);
 
 //    i2c_valCali->accl_abs = 	sqrtf(i2c_valCali->accl_offset[0]*i2c_valCali->accl_offset[0]
@@ -145,7 +145,7 @@ int Calibration_HMC5883L_singleThread(float* mag_offset, float* mag_gain) {
 	    if (i2c_var.magn[j] > max[j]) max[j] = i2c_var.magn[j];
 	    else if (i2c_var.magn[j] < min[j]) min[j] = i2c_var.magn[j];
 	}
-	usleep(100000);
+	_usleep(100000);
     }
 
     for (i=0; i<3; ++i) {
@@ -167,7 +167,7 @@ int Calibration_getSD(float* var, float* var_mean, float* var_sd, int (*f)(float
     float var_cali[3][N_SAMPLE_CALIBRATION];
 
     for (i=0; i<N_SAMPLE_CALIBRATION; ++i) {
-	usleep(3000);
+	_usleep(3000);
         if ( (ret = f(var)) !=0 ) return ret;
         for (j=0; j<3; ++j) {
             var_cali[j][i] = (float) var[j];

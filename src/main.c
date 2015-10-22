@@ -11,7 +11,7 @@
 #include <sys/mman.h>
 #include "I2CControl.h"
 #include "Setup.h"
-//#include "Initialization.h"
+#include "Common.h"
 #include "Calibration.h"
 #include "Device.h"
 
@@ -58,7 +58,7 @@ char waitKey(void) {
     char ch;
     int a;
     while ( !kbhit() ) {
-      usleep(500000);
+      _usleep(500000);
     }
 
     DEBUG_MODE = 0;
@@ -75,7 +75,7 @@ char waitKey(void) {
 	}
 	printf("Roll expect = %f\n", angle_expect[0]);
     }
-    DEBUG_MODE = 1;
+//    DEBUG_MODE = 1;
     return ch;
 }
 
@@ -100,7 +100,6 @@ int main(void) {
     Drone_Calibration_printResult(&stat);
     Drone_Start(&stat);
 
-//    usleep(5000000);
     changemode(1);
     do {
 	c = waitKey();

@@ -17,10 +17,22 @@
 */
 
 #include <math.h>
+#include <unistd.h>
+#include <time.h>
 #include "Common.h"
+
 float Common_GetNorm(float* var, unsigned int n) {
     int i;
     float sum = 0;
     for (i=0; i<n; ++i) sum += var[i]*var[i];
     return sqrtf(sum);
 }
+
+void _usleep(int milisec)
+{
+    struct timespec req = {0};
+    req.tv_sec = 0;
+    req.tv_nsec = milisec * 1000L;
+    nanosleep(&req, (struct timespec *)NULL);
+}
+

@@ -37,7 +37,7 @@ static int pwm_power[NPWM];
 
 static int ret;
 
-extern float pid_setting[8]; 
+extern float pid_setting[8];
 void I2CVariables_init(I2CVariables *i2c_var) {
     memset(i2c_var, 0, sizeof(I2CVariables));
     PID_init(&i2c_var->pid, pid_setting);
@@ -58,23 +58,21 @@ int I2CVariables_end(I2CVariables *i2c_var) {
 int Renew_acclgyro(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C ACC");
-//	usleep(500);
 	delayMicroseconds(100);
     }
     i2c_var->ret[0] = (L3G4200D_getRawValue(raw_data.gyro) << 8);
     i2c_var->ret[0] += ADXL345_getRawValue(raw_data.accl);
     pthread_mutex_unlock (&mutex_I2C);
 
-    if (i2c_var->ret[0]!=0) {
-//	usleep(1000);
-	return i2c_var->ret[0];
-    }
+//    if (i2c_var->ret[0]!=0) {
+//	return i2c_var->ret[0];
+//    }
 
-    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);//usleep(100);
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
     ADXL345_convertRawToReal(raw_data.accl, i2c_var->accl);
     L3G4200D_convertRawToReal(raw_data.gyro, i2c_var->gyro);
     pthread_mutex_unlock (&i2c_var->mutex);
-    delayMicroseconds(2500);
+    delayMicroseconds(3000);
 
     return 0;
 }
@@ -82,17 +80,14 @@ int Renew_acclgyro(I2CVariables *i2c_var) {
 int Renew_magn(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C MAG1");
-	//usleep(1000);
 	delay(1);
     }
     HMC5883L_singleMeasurement();
     pthread_mutex_unlock (&mutex_I2C);
-    //usleep(8000);
     delay(8);
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C MAG2");
-	//usleep(1000);
 	delay(1);
     }
     i2c_var->ret[1] = HMC5883L_getRawValue(raw_data.magn);
@@ -100,7 +95,7 @@ int Renew_magn(I2CVariables *i2c_var) {
 
     if (i2c_var->ret[1]!=0) return i2c_var->ret[1];
 
-    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100); //usleep(100);
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
     HMC5883L_convertRawToReal(raw_data.magn, i2c_var->magn);
     pthread_mutex_unlock (&i2c_var->mutex);
 
@@ -110,17 +105,14 @@ int Renew_magn(I2CVariables *i2c_var) {
 int Renew_magn_Origin(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C MAG");
-//	usleep(1000);
 	delay(1);
     }
     HMC5883L_singleMeasurement();
     pthread_mutex_unlock (&mutex_I2C);
-//    usleep(8000);
     delay(8);
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C MAG");
-//	usleep(1000);
 	delay(1);
     }
     i2c_var->ret[1] = HMC5883L_getRawValue(raw_data.magn);
@@ -128,7 +120,7 @@ int Renew_magn_Origin(I2CVariables *i2c_var) {
 
     if (i2c_var->ret[1]!=0) return i2c_var->ret[1];
 
-    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100); //usleep(100);
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
     HMC5883L_convertRawToReal_Zero(raw_data.magn, i2c_var->magn);
     pthread_mutex_unlock (&i2c_var->mutex);
 
@@ -139,7 +131,6 @@ int Renew_magn_Origin(I2CVariables *i2c_var) {
 int Renew_baro(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C BAR0");
-//	usleep(1000);
 	delay(1);
     }
     BMP085_Trigger_UTemp();
@@ -157,14 +148,13 @@ int Renew_baro(I2CVariables *i2c_var) {
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C BAR2");
-//	usleep(1000);
 	delay(1);
     }
     i2c_var->ret[2] = BMP085_getRawPressure(&raw_data.UP);
     pthread_mutex_unlock (&mutex_I2C);
     if (i2c_var->ret[2]!=0) return i2c_var->ret[2];
 
-    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);//usleep(100);
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
     BMP085_getRealData(&raw_data.UT, &raw_data.UP, &i2c_var->RTD, &i2c_var->RP, &i2c_var->altitude);
     pthread_mutex_unlock (&i2c_var->mutex);
 
@@ -175,12 +165,10 @@ void Renew_PWM(I2CVariables *i2c_var) {
 
     while (pthread_mutex_trylock(&i2c_var->mutex) != 0) {
         delayMicroseconds(100);
-	//usleep(100);
     }
     memcpy(pwm_power,i2c_var->PWM_power, sizeof(int)*4);
 
     pthread_mutex_unlock (&i2c_var->mutex);
-    
     while (pthread_mutex_trylock(&mutex_I2C) != 0) delayMicroseconds(100);
 
     pca9685PWMWriteMultiOff(PWM_CHANNEL, pwm_power, NPWM);
@@ -192,13 +180,13 @@ void PWM_init(I2CVariables *i2c_var) {
     int i;
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MIN;
     Renew_PWM(i2c_var);
-    usleep(5000000);
+    delayMicroseconds(5000000);
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MAX;
     Renew_PWM(i2c_var);
-    usleep(500000);
+    delayMicroseconds(500000);
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MIN;
     Renew_PWM(i2c_var);
-    usleep(3000000);
+    delayMicroseconds(3000000);
 }
 
 void PWM_reset(I2CVariables *i2c_var) {

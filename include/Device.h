@@ -4,6 +4,7 @@
 #include "SPIControl.h"
 //#include "EKF.h"
 #include "Filter_Digital.h"
+//#include "Filter_Kalman.h"
 #include "AHRS.h"
 
 typedef struct {
@@ -15,6 +16,7 @@ typedef struct {
 //    PIDControl pid;
     float accl_est[3], gyro_est[3], magn_est[3];
     Filter_Digital filter_acc[3], filter_gyr[3], filter_mag[3];
+//    Filter_Kalman filter_acc[3], filter_gyr[3], filter_mag[3];
     float accl_ref[3], gyro_corr[3], altitude_corr; //altitude_zero, gyro_zero[3];
 //    float accl_err, magn_err;
     float acc_magnitude, mag_magnitude; //g_magnitude;

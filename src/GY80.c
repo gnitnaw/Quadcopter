@@ -30,6 +30,7 @@
 #include "I2CControl.h"
 #include "GY80_Address.h"
 #include "GY80.h"
+#include "Common.h"
 
 #define	OSRS			3		// oversampling_setting : 3 means ultra high resolution
 #define P0              	101325		// atmosphere pressure
@@ -347,8 +348,6 @@ int HMC5883L_getRawValue(short* magn) {
 
 int HMC5883L_getRealData(float* magn) {
     int i;
-    //HMC5883L_singleMeasurement();
-    //usleep(6000);
     if ( (ret_mag=HMC5883L_getRawValue(stat_mag)) !=0) return ret_mag;
 
     for (i=0; i<3; ++i) magn[i] = mag_gain[i] *(stat_mag[i] - mag_offset[i]) * HMC5883L_RESOLUTION;
@@ -402,7 +401,7 @@ void BMP085_Trigger_UTemp(void) {
     regaddr[1] = 0x2E;
     bcm2835_i2c_write(regaddr,2);
 #ifdef BMP085_WAIT
-    usleep(5000);
+    _usleep(5000);
 #endif
 }
 
@@ -412,7 +411,7 @@ void BMP085_Trigger_UPressure(void) {
     regaddr[1] = 0x34+(OSRS<<6);
     bcm2835_i2c_write(regaddr,2);
 #ifdef BMP085_WAIT
-    usleep(25500);
+    _usleep(25500);
 #endif
 }
 

@@ -16,7 +16,7 @@ void Kalman_init(Kalman* k, float var, float noise) {
     k->data_estimated = k->data_updated + k->K_factor * (k->data_measured-k->data_updated);
     k->P_EC_estimated = (1-k->K_factor)*k->P_EC;
 }
-
+/*
 void Kalman_init_all(float* accl, float* accl_sd, float* gyro, float* gyro_sd, float* magn, float* magn_sd){
     int i;
     for (i=0; i<3; ++i) {
@@ -25,7 +25,7 @@ void Kalman_init_all(float* accl, float* accl_sd, float* gyro, float* gyro_sd, f
 	Kalman_init(&magn_K[i], magn[i], magn_sd[i]);
     }
 }
-
+*/
 void Kalman_renew(Kalman* k, float* var_m, float* var_e ) {
     k->data_measured = *var_m;
     k->data_updated = k->data_estimated;
@@ -35,7 +35,7 @@ void Kalman_renew(Kalman* k, float* var_m, float* var_e ) {
     k->P_EC_estimated = (1-k->K_factor)*k->P_EC;
     *var_e = k->data_estimated;
 }
-
+/*
 void Kalman_estimate(float* var, float* var_est, char c) {
     int i;
     Kalman* k;
@@ -51,18 +51,11 @@ void Kalman_estimate(float* var, float* var_est, char c) {
 }
 
 void Kalman_estimateAll(float* accl, float* gyro, float* magn, float* accl_est, float* gyro_est, float* magn_est) {
-/*
-    int i;
-    for (i=0; i<3; ++i) {
-        Kalman_renew(&accl_K[i], &accl[i], &accl_est[i]);
-        Kalman_renew(&gyro_K[i], &gyro[i], &gyro_est[i]);
-        Kalman_renew(&magn_K[i], &magn[i], &magn_est[i]);
-    }
-*/
     Kalman_estimate(accl, accl_est, 'A');
     Kalman_estimate(gyro, gyro_est, 'G');
     Kalman_estimate(magn, magn_est, 'M');
 }
+
 
 int Kalman_init_Calibration(float* var, float* var_offset, char c){
     int i, ret;
@@ -106,3 +99,4 @@ int Kalman_init_all_Calibration(float* accl, float* gyro, float* magn, float* ac
     return 0;
 }
 
+*/

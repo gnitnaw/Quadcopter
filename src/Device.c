@@ -32,13 +32,13 @@
 #include "PCA9685PW.h"
 #include "GY80.h"
 
-#define NUM_THREADS	3
+#define NUM_THREADS	1
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
 #define RAD_TO_DEG      (180/M_PI)
 #define NOPWM
 //#define LOGFILENAME	"Kp_9_200_01.dat"
-#define LOGFILENAME   "DF.dat"
+#define LOGFILENAME   "DF2.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
@@ -61,6 +61,8 @@ extern float angle_expect[3];
 //static float angle_expect[] = {0, 0, 0};
 static FILE *fp;
 static float T = 0;
+static AHRS test_AHRS;
+static float test_angle[3];
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
     clock_gettime(CLOCK_REALTIME, &tp1);
@@ -77,9 +79,10 @@ void* Renew_accgyr_cycle(void *data) {
 	//Filter_AcclGyro(stat->i2c_var.accl, stat->i2c_var.gyro);
 	Drone_Renew(stat, &deltaT);
 	AHRS_getAngle(&stat->ahrs, stat->angle);
+	AHRS_getAngle(&test_AHRS, test_angle);
         if (iDetect%100==0 && DEBUG_MODE){
             //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
-            printf("Roll = %f, Pitch = %f, Yaw = %f, Roll_exp = %f, dt = %E ", stat->angle[0], stat->angle[1], stat->angle[2],angle_expect[0], deltaT);
+            printf("%f, Roll = %f, Pitch = %f, Yaw = %f, dt = %E ", T, stat->angle[0], stat->angle[1], stat->angle[2], deltaT);
 	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) delayMicroseconds(100);
 	    printf("Voltage : %f\n", stat->spi_var.voltage);
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
@@ -89,12 +92,14 @@ void* Renew_accgyr_cycle(void *data) {
 	if ( iDetect%2 == 0 ) {
 	    T += dT_PWM;
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
-	    fprintf(fp, "%f\t%f\t%f\t%f\t%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", T, stat->angle[0], stat->angle[1], stat->angle[2],
-		stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3],
-		stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG,
-		stat->gyro_est[0]*RAD_TO_DEG,stat->gyro_est[1]*RAD_TO_DEG,stat->gyro_est[2]*RAD_TO_DEG,
-		stat->i2c_var.accl[0], stat->i2c_var.accl[1],stat->i2c_var.accl[2],
-		stat->accl_est[0], stat->accl_est[1], stat->accl_est[2]);
+	    fprintf(fp, "%f\t%f\t", T, deltaT);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", test_angle[0], test_angle[1], test_angle[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", test_AHRS.angVel[0], test_AHRS.angVel[1], test_AHRS.angVel[2]);
+	    fprintf(fp, "%f\t%f\t%f\t\n", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
 	    dT_PWM = 0.0;
 #ifndef NOPWM
             Renew_PWM(&stat->i2c_var);
@@ -171,7 +176,7 @@ void Drone_end(Drone_Status *stat) {
     iThread = 0;
     do {
         __sync_synchronize();
-        usleep(100000);
+        _usleep(100000);
     } while (thread_count);
     fclose(fp);
     I2CVariables_end(&stat->i2c_var);
@@ -202,9 +207,11 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[1]  = atan2(stat->i2c_cali.accl_offset[0], Common_GetNorm(stat->i2c_cali.accl_offset, 3)) * RAD_TO_DEG;
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[1]/Common_GetNorm(stat->i2c_cali.magn_offset, 2)) * RAD_TO_DEG;	// yaw
     AHRS_init(&stat->ahrs, stat->angle, pi);
+    AHRS_init(&test_AHRS, stat->angle, pi);
+    AHRS_setPI(&test_AHRS, 2.5, 0.01);
 //    Quaternion_From_Stat(stat);
 
-    float dt_temp = 0.05;
+    float dt_temp = 0.01;
     for (i=0; i<3; ++i) {
 	stat->i2c_var.accl[i] = stat->i2c_cali.accl_offset[i];
 	stat->i2c_var.gyro[i] = stat->i2c_cali.gyro_offset[i];
@@ -218,6 +225,7 @@ void Drone_Start(Drone_Status *stat) {
 
     for (i=0; i<5000; ++i) {
 	AHRS_renew(&stat->ahrs, &dt_temp, stat->i2c_cali.accl_offset, stat->i2c_cali.gyro_offset, stat->i2c_cali.magn_offset);
+	AHRS_renew(&test_AHRS, &dt_temp, stat->i2c_cali.accl_offset, stat->i2c_cali.gyro_offset, stat->i2c_cali.magn_offset);
     }
 
     Filter_init() ;
@@ -228,15 +236,15 @@ void Drone_Start(Drone_Status *stat) {
 
 #ifndef NOPWM
     PWM_init(&stat->i2c_var);
-    usleep(2000000);
+    _usleep(2000000);
 #endif
 
     thread_count = NUM_THREADS;
     if (DEBUG_MODE) puts("Drone -- Run thread!");
 //    pthread_create(&t_adc, NULL, &Renew_ADC_cycle, (void*) &stat->spi_var);
-    pthread_create(&t_magn, NULL, &Renew_magn_cycle, (void*) &stat->i2c_var);
-    pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &stat->i2c_var);
-    usleep(50000);
+//    pthread_create(&t_magn, NULL, &Renew_magn_cycle, (void*) &stat->i2c_var);
+//    pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &stat->i2c_var);
+    _usleep(50000);
     pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
 
     fp = fopen(LOGFILENAME,"w");
@@ -245,7 +253,7 @@ void Drone_Start(Drone_Status *stat) {
 	exit(1);
     }
 
-    usleep(3000);
+    _usleep(3000);
 }
 
 void Drone_Renew(Drone_Status *stat, float* deltaT) {
@@ -287,7 +295,8 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     Drone_NoiseFilter(stat) ;
 
     AHRS_renew(&stat->ahrs, deltaT, stat->accl_est, stat->gyro_corr, stat->magn_est);
-//    AHRS_renew(&stat->ahrs, deltaT, stat->i2c_var.accl, stat->gyro_corr, stat->i2c_var.magn);
+    AHRS_renew(&test_AHRS, deltaT, stat->accl_est, stat->gyro_corr, stat->magn_est);
+
 }
 
 
@@ -300,4 +309,14 @@ void Drone_NoiseFilter(Drone_Status *stat) {
     }
 }
 
+/*
+void Drone_NoiseFilter(Drone_Status *stat) {
+    int i;
+    for (i=0; i<3; ++i) {
+        Kalman_renew(&stat->filter_acc[i], &stat->i2c_var.accl[i], &stat->accl_est[i]) ;
+        Kalman_renew(&stat->filter_gyr[i], &stat->i2c_var.gyro[i], &stat->gyro_est[i]) ;
+        Kalman_renew(&stat->filter_mag[i], &stat->i2c_var.magn[i], &stat->magn_est[i]) ;
+    }
+}
+*/
 
