@@ -43,6 +43,7 @@
 static int iThread = 1;
 /* A mutex protecting job_queue. */
 static unsigned int thread_count;
+static unsigned int thread_adc = 0;
 static int ret;
 static float factor;
 static unsigned long iDetect = 0;
@@ -61,8 +62,17 @@ extern float angle_expect[3];
 //static float angle_expect[] = {0, 0, 0};
 static FILE *fp;
 static float T = 0;
-static AHRS test_AHRS;
-static float test_angle[3];
+
+void* Renew_ADC(void *data) {
+    __sync_fetch_and_add(&thread_adc,1);
+    SPIVariables* var = (SPIVariables*) data;
+    MCP3008_Renew(var);
+//    __sync_fetch_and_sub(&thread_count,1);
+    __sync_fetch_and_sub(&thread_adc,1);
+    return 0;
+}
+
+
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
     clock_gettime(CLOCK_REALTIME, &tp1);
@@ -79,7 +89,6 @@ void* Renew_accgyr_cycle(void *data) {
 	//Filter_AcclGyro(stat->i2c_var.accl, stat->i2c_var.gyro);
 	Drone_Renew(stat, &deltaT);
 	AHRS_getAngle(&stat->ahrs, stat->angle);
-	AHRS_getAngle(&test_AHRS, test_angle);
         if (iDetect%100==0 && DEBUG_MODE){
             //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
             printf("%f, Roll = %f, Pitch = %f, Yaw = %f, dt = %E ", T, stat->angle[0], stat->angle[1], stat->angle[2], deltaT);
@@ -94,11 +103,9 @@ void* Renew_accgyr_cycle(void *data) {
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
 	    fprintf(fp, "%f\t%f\t", T, deltaT);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", test_angle[0], test_angle[1], test_angle[2]);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", test_AHRS.angVel[0], test_AHRS.angVel[1], test_AHRS.angVel[2]);
 	    fprintf(fp, "%f\t%f\t%f\t\n", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
 	    dT_PWM = 0.0;
 #ifndef NOPWM
@@ -109,6 +116,8 @@ void* Renew_accgyr_cycle(void *data) {
 	iDetect++;
 	tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
+	if (!thread_adc) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
+	delayMicroseconds(3000);
     }
 #ifndef NOPWM
     PWM_reset(&stat->i2c_var);
@@ -142,16 +151,6 @@ void* Renew_RF24_cycle(void *data) {
     __sync_fetch_and_sub(&thread_count,1);
     return 0;
 }
-
-void* Renew_ADC_cycle(void *data) {
-    SPIVariables* var = (SPIVariables*) data;
-    while(iThread) {
-        MCP3008_Renew(var);
-    }
-    __sync_fetch_and_sub(&thread_count,1);
-    return 0;
-}
-
 
 int Drone_init(Drone_Status *stat) {
     memset(stat, 0, sizeof(Drone_Status));
@@ -207,8 +206,6 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[1]  = atan2(stat->i2c_cali.accl_offset[0], Common_GetNorm(stat->i2c_cali.accl_offset, 3)) * RAD_TO_DEG;
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[1]/Common_GetNorm(stat->i2c_cali.magn_offset, 2)) * RAD_TO_DEG;	// yaw
     AHRS_init(&stat->ahrs, stat->angle, pi);
-    AHRS_init(&test_AHRS, stat->angle, pi);
-    AHRS_setPI(&test_AHRS, 2.5, 0.01);
 //    Quaternion_From_Stat(stat);
 
     float dt_temp = 0.01;
@@ -225,7 +222,6 @@ void Drone_Start(Drone_Status *stat) {
 
     for (i=0; i<5000; ++i) {
 	AHRS_renew(&stat->ahrs, &dt_temp, stat->i2c_cali.accl_offset, stat->i2c_cali.gyro_offset, stat->i2c_cali.magn_offset);
-	AHRS_renew(&test_AHRS, &dt_temp, stat->i2c_cali.accl_offset, stat->i2c_cali.gyro_offset, stat->i2c_cali.magn_offset);
     }
 
     Filter_init() ;
@@ -295,7 +291,6 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     Drone_NoiseFilter(stat) ;
 
     AHRS_renew(&stat->ahrs, deltaT, stat->accl_est, stat->gyro_corr, stat->magn_est);
-    AHRS_renew(&test_AHRS, deltaT, stat->accl_est, stat->gyro_corr, stat->magn_est);
 
 }
 

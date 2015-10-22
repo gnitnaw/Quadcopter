@@ -40,6 +40,8 @@ int I2CVariables_end(I2CVariables *i2c_var);
 int Renew_acclgyro(I2CVariables *i2c_var);
 int Renew_magn(I2CVariables *i2c_var);
 int Renew_magn_Origin(I2CVariables *i2c_var);
+void Trigger_magn(I2CVariables *i2c_var) ;
+void measureAndTrigger_magn(I2CVariables *i2c_var) ;
 int Renew_baro(I2CVariables *i2c_var);
 void PWM_init(I2CVariables *i2c_var);
 void Renew_PWM(I2CVariables *i2c_var);

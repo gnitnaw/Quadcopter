@@ -1,7 +1,7 @@
 #ifndef H_SETUP
 #define H_SETUP
 
-int DEBUG_MODE		=	0;
+int DEBUG_MODE		=	1;
 int ADXL345_RATE	=	400;
 int ADXL345_RANGE       =       4;
 int L3G4200D_RATE	=	400;

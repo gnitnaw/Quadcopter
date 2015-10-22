@@ -56,10 +56,7 @@ int I2CVariables_end(I2CVariables *i2c_var) {
 }
 
 int Renew_acclgyro(I2CVariables *i2c_var) {
-    while (pthread_mutex_trylock(&mutex_I2C) != 0) {
-//	puts("LOCK I2C ACC");
-	delayMicroseconds(100);
-    }
+    while (pthread_mutex_trylock(&mutex_I2C) != 0) ;
     i2c_var->ret[0] = (L3G4200D_getRawValue(raw_data.gyro) << 8);
     i2c_var->ret[0] += ADXL345_getRawValue(raw_data.accl);
     pthread_mutex_unlock (&mutex_I2C);
@@ -68,11 +65,11 @@ int Renew_acclgyro(I2CVariables *i2c_var) {
 //	return i2c_var->ret[0];
 //    }
 
-    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0);
     ADXL345_convertRawToReal(raw_data.accl, i2c_var->accl);
     L3G4200D_convertRawToReal(raw_data.gyro, i2c_var->gyro);
     pthread_mutex_unlock (&i2c_var->mutex);
-    delayMicroseconds(3000);
+//    delayMicroseconds(3000);
 
     return 0;
 }
@@ -100,6 +97,26 @@ int Renew_magn(I2CVariables *i2c_var) {
     pthread_mutex_unlock (&i2c_var->mutex);
 
     return 0;
+}
+
+void Trigger_magn(I2CVariables *i2c_var) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0) ;
+    HMC5883L_singleMeasurement();
+    pthread_mutex_unlock (&mutex_I2C);
+    delay(6);
+}
+
+void measureAndTrigger_magn(I2CVariables *i2c_var) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0) ;
+    i2c_var->ret[1] = HMC5883L_getRawValue(raw_data.magn);
+    HMC5883L_singleMeasurement();
+    pthread_mutex_unlock (&mutex_I2C);
+
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0);
+    HMC5883L_convertRawToReal(raw_data.magn, i2c_var->magn);
+    pthread_mutex_unlock (&i2c_var->mutex);
+
+    delay(6);
 }
 
 int Renew_magn_Origin(I2CVariables *i2c_var) {
