@@ -81,11 +81,11 @@ int Renew_magn(I2CVariables *i2c_var) {
     }
     HMC5883L_singleMeasurement();
     pthread_mutex_unlock (&mutex_I2C);
-    delay(8);
+    delay(6);
 
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
 //	puts("LOCK I2C MAG2");
-	delay(1);
+//	delay(1);
     }
     i2c_var->ret[1] = HMC5883L_getRawValue(raw_data.magn);
     pthread_mutex_unlock (&mutex_I2C);
@@ -99,7 +99,7 @@ int Renew_magn(I2CVariables *i2c_var) {
     return 0;
 }
 
-void Trigger_magn(I2CVariables *i2c_var) {
+void Trigger_magn(void) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) ;
     HMC5883L_singleMeasurement();
     pthread_mutex_unlock (&mutex_I2C);
@@ -108,15 +108,15 @@ void Trigger_magn(I2CVariables *i2c_var) {
 
 void measureAndTrigger_magn(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) ;
-    i2c_var->ret[1] = HMC5883L_getRawValue(raw_data.magn);
+    int ret = HMC5883L_getRawValue(raw_data.magn);
     HMC5883L_singleMeasurement();
     pthread_mutex_unlock (&mutex_I2C);
 
     while (pthread_mutex_trylock(&i2c_var->mutex) != 0);
     HMC5883L_convertRawToReal(raw_data.magn, i2c_var->magn);
+    i2c_var->ret[1] = ret;
     pthread_mutex_unlock (&i2c_var->mutex);
 
-    delay(6);
 }
 
 int Renew_magn_Origin(I2CVariables *i2c_var) {
@@ -144,6 +144,33 @@ int Renew_magn_Origin(I2CVariables *i2c_var) {
     return 0;
 }
 
+
+void Trigger_baroTemp(void) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0);
+    BMP085_Trigger_UTemp();
+    pthread_mutex_unlock (&mutex_I2C);
+}
+
+int measureTemp_triggerPres(void) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0);
+    int ret = BMP085_getRawTemp(&raw_data.UT);
+    BMP085_Trigger_UPressure();
+    pthread_mutex_unlock (&mutex_I2C);
+    return ret;
+}
+
+int measurePres_triggerTemp(I2CVariables *i2c_var) {
+    while (pthread_mutex_trylock(&mutex_I2C) != 0);
+    int ret = BMP085_getRawPressure(&raw_data.UP);
+    BMP085_Trigger_UTemp();
+    pthread_mutex_unlock (&mutex_I2C);
+
+    while (pthread_mutex_trylock(&i2c_var->mutex) != 0) delayMicroseconds(100);
+    BMP085_getRealData(&raw_data.UT, &raw_data.UP, &i2c_var->RTD, &i2c_var->RP, &i2c_var->altitude);
+    i2c_var->ret[2] = ret;
+    pthread_mutex_unlock (&i2c_var->mutex);
+    return ret;
+}
 
 int Renew_baro(I2CVariables *i2c_var) {
     while (pthread_mutex_trylock(&mutex_I2C) != 0) {
@@ -197,10 +224,10 @@ void PWM_init(I2CVariables *i2c_var) {
     int i;
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MIN;
     Renew_PWM(i2c_var);
-    delayMicroseconds(5000000);
+    delayMicroseconds(500000);
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MAX;
     Renew_PWM(i2c_var);
-    delayMicroseconds(500000);
+    delayMicroseconds(400000);
     for (i=0; i<4; ++i) i2c_var->PWM_power[i]=POWER_MIN;
     Renew_PWM(i2c_var);
     delayMicroseconds(3000000);

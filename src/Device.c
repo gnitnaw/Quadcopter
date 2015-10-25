@@ -36,14 +36,14 @@
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
 #define RAD_TO_DEG      (180/M_PI)
-#define NOPWM
-//#define LOGFILENAME	"Kp_9_200_01.dat"
-#define LOGFILENAME   "DF2.dat"
+//#define NOPWM
+#define LOGFILENAME	"Kp_7_100_0.25.dat"
+//#define LOGFILENAME   "DF2.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
 static unsigned int thread_count;
-static unsigned int thread_adc = 0;
+//static unsigned int thread_adc = 0, thread_mag = 0;
 static int ret;
 static float factor;
 static unsigned long iDetect = 0;
@@ -64,14 +64,33 @@ static FILE *fp;
 static float T = 0;
 
 void* Renew_ADC(void *data) {
-    __sync_fetch_and_add(&thread_adc,1);
+    pthread_detach(pthread_self());
     SPIVariables* var = (SPIVariables*) data;
     MCP3008_Renew(var);
-//    __sync_fetch_and_sub(&thread_count,1);
-    __sync_fetch_and_sub(&thread_adc,1);
     return 0;
 }
 
+void* Renew_MAG(void *data) {
+    pthread_detach(pthread_self());
+    measureAndTrigger_magn((I2CVariables*) data);
+    return 0;
+}
+
+void* Renew_BAR1(void *data) {
+//    stepBaro = 1;
+//    I2CVariables* var = (I2CVariables*) data;
+    pthread_detach(pthread_self());
+    measureTemp_triggerPres();
+//    stepBaro = 2;
+    return 0;
+}
+
+void* Renew_BAR2(void *data) {
+    pthread_detach(pthread_self());
+    I2CVariables* var = (I2CVariables*) data;
+    measurePres_triggerTemp(var);
+    return 0;
+}
 
 void* Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
@@ -91,22 +110,25 @@ void* Renew_accgyr_cycle(void *data) {
 	AHRS_getAngle(&stat->ahrs, stat->angle);
         if (iDetect%100==0 && DEBUG_MODE){
             //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
-            printf("%f, Roll = %f, Pitch = %f, Yaw = %f, dt = %E ", T, stat->angle[0], stat->angle[1], stat->angle[2], deltaT);
+            printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E, alti = %f,  ", stat->angle[0], stat->angle[1], stat->angle[2], deltaT, stat->i2c_var.altitude);
 	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) delayMicroseconds(100);
 	    printf("Voltage : %f\n", stat->spi_var.voltage);
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
 	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
 	pthread_mutex_unlock (&stat->i2c_var.mutex);
-	if ( iDetect%2 == 0 ) {
+	if ( iDetect%2==0 ) {
 	    T += dT_PWM;
 	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
 	    fprintf(fp, "%f\t%f\t", T, deltaT);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.accl[0], stat->i2c_var.accl[1],stat->i2c_var.accl[2]);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
 	    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
-	    fprintf(fp, "%f\t%f\t%f\t\n", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
+	    fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
+	    fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
 	    dT_PWM = 0.0;
 #ifndef NOPWM
             Renew_PWM(&stat->i2c_var);
@@ -116,38 +138,15 @@ void* Renew_accgyr_cycle(void *data) {
 	iDetect++;
 	tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-	if (!thread_adc) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
+	if ( (iDetect%2) == 0 ) pthread_create(&t_magn, NULL, &Renew_MAG, (void*) &stat->i2c_var);
+	if ( (iDetect%3000) == 1 ) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
+	if ( (iDetect%8) == 1 ) pthread_create(&t_baro, NULL, &Renew_BAR1, (void*)&stat->i2c_var);
+	if ( (iDetect%8) == 7 ) pthread_create(&t_baro, NULL, &Renew_BAR2, (void*)&stat->i2c_var);
 	delayMicroseconds(3000);
     }
 #ifndef NOPWM
     PWM_reset(&stat->i2c_var);
 #endif
-    __sync_fetch_and_sub(&thread_count,1);
-    return 0;
-}
-
-void* Renew_magn_cycle(void *data) {
-    while (iThread) {
-        Renew_magn((I2CVariables*) data);
-    }
-    __sync_fetch_and_sub(&thread_count,1);
-    return 0;
-}
-
-void* Renew_baro_cycle(void *data) {
-    I2CVariables* var = (I2CVariables*) data;
-    while(iThread) {
-        Renew_baro(var);
-    }
-    __sync_fetch_and_sub(&thread_count,1);
-    return 0;
-}
-
-void* Renew_RF24_cycle(void *data) {
-    SPIVariables* var = (SPIVariables*) data;
-    while(iThread) {
-	RF24_Renew(var);
-    }
     __sync_fetch_and_sub(&thread_count,1);
     return 0;
 }
@@ -225,6 +224,7 @@ void Drone_Start(Drone_Status *stat) {
     }
 
     Filter_init() ;
+    Trigger_magn();
 //    angle_expect[0] = 0.0;
 //    angle_expect[1] = 0.0;
 //    angle_expect[2] = stat->angle[2];
@@ -237,11 +237,6 @@ void Drone_Start(Drone_Status *stat) {
 
     thread_count = NUM_THREADS;
     if (DEBUG_MODE) puts("Drone -- Run thread!");
-//    pthread_create(&t_adc, NULL, &Renew_ADC_cycle, (void*) &stat->spi_var);
-//    pthread_create(&t_magn, NULL, &Renew_magn_cycle, (void*) &stat->i2c_var);
-//    pthread_create(&t_baro, NULL, &Renew_baro_cycle, (void*) &stat->i2c_var);
-    _usleep(50000);
-    pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
 
     fp = fopen(LOGFILENAME,"w");
     if (!fp) {
@@ -249,6 +244,7 @@ void Drone_Start(Drone_Status *stat) {
 	exit(1);
     }
 
+    pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
     _usleep(3000);
 }
 

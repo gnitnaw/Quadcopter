@@ -51,7 +51,7 @@ int kbhit (void)
     return FD_ISSET(STDIN_FILENO, &rdfs);
 }
 char waitKey(void);
-int power = 820;
+int power = 1640;
 float angle_expect[] = {0, 0, 0};
 //int power = 2200;
 char waitKey(void) {
@@ -65,7 +65,7 @@ char waitKey(void) {
     if ( (ch = getchar()) == 'P') {
 	puts("Give me the power");
 	scanf("%d", &a);
-	if ( a<=1640 && a>=820) power = a;
+	if ( a<=3280 && a>=1640) power = a;
 	printf("Power = %d\n", power);
     } else if ( ch == 'R') {
 	puts("Give me the Roll");
@@ -75,7 +75,7 @@ char waitKey(void) {
 	}
 	printf("Roll expect = %f\n", angle_expect[0]);
     }
-//    DEBUG_MODE = 1;
+    DEBUG_MODE = 1;
     return ch;
 }
 

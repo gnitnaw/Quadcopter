@@ -3,11 +3,11 @@
 
 int DEBUG_MODE		=	1;
 int ADXL345_RATE	=	400;
-int ADXL345_RANGE       =       4;
+int ADXL345_RANGE       =       2;
 int L3G4200D_RATE	=	400;
 int L3G4200D_RANGE	=	500;
 int HMC5883L_RATE	=	75;
-int PCA9685PW_FREQ	=	200;
+int PCA9685PW_FREQ	=	400;
 
 int PWM_CHANNEL[]	= {0,1,2,3};
 //float mag_offset[]	= {-270, -115.5, 20.5};
@@ -23,7 +23,7 @@ float v_input		= 5.0;
 float pi[] = {2.5,0.005};
 //float pid_setting[]	= {20, 0, 0, 400, 0, 0, 20.0, 0.005};
 //float pid_setting[]   = {20, 0, 0, 140, 2, 80, 30.0, 10};
-float pid_setting[]   = {20, 0, 0, 9, 0.1, 200, 15.0, 4};
+float pid_setting[]   = {20, 0, 0, 7, 0.25, 100, 15.0, 4};
 
 #endif
 
@@ -40,3 +40,7 @@ float pid_setting[]   = {20, 0, 0, 9, 0.1, 200, 15.0, 4};
 // 490 is too much
 // 470 300 9 is good
 // 10/16 : 480 9 250 is too much
+
+
+// 7.5 120
+// I = 0.6 is too much
