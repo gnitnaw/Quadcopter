@@ -36,7 +36,7 @@ void Calibration_getSD_singlethread(void *cal) {
     int (*f)(I2CVariables *) = 0;
     I2CCaliThread* i2c_caliThread = (I2CCaliThread*) cal;
     if (i2c_caliThread->c == 'A') {
-        f = Renew_acclgyro;
+        f = Renew_acclgyro_wait;
 	var = (float*) &i2c_caliThread->i2c_var->accl;
 	nItem = 6;
 	nSample = N_SAMPLE_CALIBRATION;

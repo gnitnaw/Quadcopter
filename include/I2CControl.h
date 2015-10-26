@@ -38,6 +38,7 @@ typedef struct {
 void I2CVariables_init(I2CVariables *i2c_var);
 int I2CVariables_end(I2CVariables *i2c_var);
 int Renew_acclgyro(I2CVariables *i2c_var);
+int Renew_acclgyro_wait(I2CVariables *i2c_var);
 int Renew_magn(I2CVariables *i2c_var);
 int Renew_magn_Origin(I2CVariables *i2c_var);
 void Trigger_baroTemp(void) ;

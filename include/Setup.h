@@ -3,7 +3,7 @@
 
 int DEBUG_MODE		=	1;
 int ADXL345_RATE	=	400;
-int ADXL345_RANGE       =       2;
+int ADXL345_RANGE       =       4;
 int L3G4200D_RATE	=	400;
 int L3G4200D_RANGE	=	500;
 int HMC5883L_RATE	=	75;
@@ -23,7 +23,7 @@ float v_input		= 5.0;
 float pi[] = {2.5,0.005};
 //float pid_setting[]	= {20, 0, 0, 400, 0, 0, 20.0, 0.005};
 //float pid_setting[]   = {20, 0, 0, 140, 2, 80, 30.0, 10};
-float pid_setting[]   = {20, 0, 0, 7, 0.25, 100, 15.0, 4};
+float pid_setting[]   = {20, 0, 0, 7, 0.2, 105, 15.0, 4};
 
 #endif
 
@@ -44,3 +44,5 @@ float pid_setting[]   = {20, 0, 0, 7, 0.25, 100, 15.0, 4};
 
 // 7.5 120
 // I = 0.6 is too much
+
+// 7 0.05 105 for X

@@ -58,7 +58,7 @@ char waitKey(void) {
     char ch;
     int a;
     while ( !kbhit() ) {
-      _usleep(500000);
+      usleep(500000);
     }
 
     DEBUG_MODE = 0;
@@ -71,9 +71,9 @@ char waitKey(void) {
 	puts("Give me the Roll");
 	scanf("%d", &a);
 	if (a<= 20 && a>=-20) {
-	    angle_expect[0] = a;
+	    angle_expect[1] = a;
 	}
-	printf("Roll expect = %f\n", angle_expect[0]);
+	printf("Roll expect = %f\n", angle_expect[1]);
     }
     DEBUG_MODE = 1;
     return ch;
@@ -89,8 +89,6 @@ int main(void) {
     sched_setscheduler(0, SCHED_FIFO, &sp);
     mlockall(MCL_CURRENT | MCL_FUTURE);
 */
-//    PCA9685PW_init(1);
-
     Drone_Status stat;
     int ret;
     char c = 'a';
