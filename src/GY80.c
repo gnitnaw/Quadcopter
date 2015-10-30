@@ -240,7 +240,7 @@ void L3G4200D_init(void) {
     regaddr[1] = 0x00;
     bcm2835_i2c_write(regaddr,2);
 }
-
+/*
 int L3G4200D_getRawValue(short* gyr) {
     char *buf = (char*) gyr;
     L3G4200D_switch();
@@ -252,6 +252,14 @@ int L3G4200D_getRawValue(short* gyr) {
 
 	++regaddr[0];
     }
+    return 0;
+}
+*/
+int L3G4200D_getRawValue(short* gyr) {
+    L3G4200D_switch();
+    regaddr[0] = L3G4200D_OUT_X_L_7B;
+    bcm2835_i2c_write(regaddr, 1);
+    if ( (ret_gyr = bcm2835_i2c_read((char*)gyr, 6)) != BCM2835_I2C_REASON_OK) return ret_gyr;
     return 0;
 }
 

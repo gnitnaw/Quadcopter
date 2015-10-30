@@ -75,6 +75,7 @@
 #define L3G4200D_OUT_Y_H        0x2B
 #define L3G4200D_OUT_Z_L        0x2C
 #define L3G4200D_OUT_Z_H        0x2D
+#define L3G4200D_OUT_X_L_7B     0xA8
 #define L3G4200D_FIFO_CTRL_REG  0x2E
 #define L3G4200D_FIFO_SRC_REG   0x2F
 #define L3G4200D_INT1_CFG       0x30

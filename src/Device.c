@@ -36,9 +36,9 @@
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
 #define RAD_TO_DEG      (180/M_PI)
-//#define NOPWM
-#define LOGFILENAME	"Kp_7_105_0.2_all.dat"
-//#define LOGFILENAME   "Silence4.dat"
+#define NOPWM
+//#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
+#define LOGFILENAME   "Silence2.dat"
 
 static int iThread = 1;
 /* A mutex protecting job_queue. */
@@ -119,7 +119,7 @@ void* Renew_accgyr_cycle(void *data) {
 
     while (iThread) {
 	Renew_acclgyro(&stat->i2c_var);
-	angle_expect[2] = stat->angle[2];
+	//angle_expect[2] = stat->angle[2];
 	clock_gettime(CLOCK_REALTIME, &tp2);
         procesTime = tp2.tv_sec*1000000000 + tp2.tv_nsec - startTime;
         deltaT = (float)procesTime/1000000000.0;
@@ -170,7 +170,7 @@ void* Renew_accgyr_cycle(void *data) {
 	else if ( (iDetect%9) == 8 ) pthread_create(&t_baro, NULL, &Renew_BAR2, (void*)&stat->i2c_var);
 
 
-//	if (iDetect == 4000) iThread = 0;
+	if (iDetect == 4000) iThread = 0;
 
         iDetect++;
         tp1 = tp2;
@@ -205,7 +205,7 @@ int Drone_init(Drone_Status *stat) {
 }
 
 void Drone_end(Drone_Status *stat) {
-    iThread = 0;
+//    iThread = 0;
 //    do {
 //        __sync_synchronize();
 //        _usleep(100000);

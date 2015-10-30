@@ -87,8 +87,9 @@ int main(void) {
     memset(&sp, 0, sizeof(sp));
     sp.sched_priority = 49;
     sched_setscheduler(0, SCHED_FIFO, &sp);
-    mlockall(MCL_CURRENT | MCL_FUTURE);
 */
+    mlockall(MCL_CURRENT | MCL_FUTURE);
+
     Drone_Status stat;
     int ret;
     char c = 'a';
@@ -97,12 +98,12 @@ int main(void) {
     Drone_Calibration(&stat);
     Drone_Calibration_printResult(&stat);
     Drone_Start(&stat);
-
+/*
     changemode(1);
     do {
 	c = waitKey();
     } while (c != 'c');
-
+*/
 
 //    do {
 //        puts("Press c to stop");
