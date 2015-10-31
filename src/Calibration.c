@@ -27,7 +27,7 @@
 #define N_SAMPLE_CALIBRATION	2000
 #define NUM_CALI_THREADS 3
 
-static unsigned int thread_count;
+//static unsigned int thread_count;
 
 void Calibration_getSD_singlethread(void *cal) {
     int i, j, nItem=1, nSample=N_SAMPLE_CALIBRATION, SD_Check=0;
@@ -82,13 +82,14 @@ void Calibration_getSD_singlethread(void *cal) {
 	    return;
 	}
     }
-    __sync_fetch_and_sub(&thread_count,1);
+    pthread_exit(NULL);
+//    __sync_fetch_and_sub(&thread_count,1);
 }
 
 void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
     I2CVariables i2c_var;
     I2CVariables_init(&i2c_var);
-    thread_count = NUM_CALI_THREADS;
+//    thread_count = NUM_CALI_THREADS;
     pthread_t thread_i2c[NUM_CALI_THREADS];
     I2CCaliThread cali[NUM_CALI_THREADS];
     pthread_mutex_init (&i2c_var.mutex, NULL);
@@ -113,11 +114,15 @@ void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
     pthread_create(&thread_i2c[2], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[2]);
 //    pthread_join(thread_i2c[2],NULL);
 
+    pthread_join(thread_i2c[0],NULL);
+    pthread_join(thread_i2c[1],NULL);
+    pthread_join(thread_i2c[2],NULL);
+/*
     do {
 	__sync_synchronize();
 	_usleep(1000000);
     } while (thread_count);
-
+*/
 //    i2c_valCali->accl_abs = 	sqrtf(i2c_valCali->accl_offset[0]*i2c_valCali->accl_offset[0]
 //				+i2c_valCali->accl_offset[1]*i2c_valCali->accl_offset[1]
 //				+i2c_valCali->accl_offset[2]*i2c_valCali->accl_offset[2]);

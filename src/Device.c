@@ -175,7 +175,8 @@ void* Renew_accgyr_cycle(void *data) {
         iDetect++;
         tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-	bcm2835_delay(3);
+	//bcm2835_delay(3);
+	_usleep(3200);
 	//delayMicroseconds(3000);
     }
 #ifndef NOPWM
