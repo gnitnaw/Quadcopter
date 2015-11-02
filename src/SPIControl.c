@@ -19,11 +19,13 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <sched.h>
 #include <bcm2835.h>
 #include "SPIControl.h"
 #include "RF24_Interface.h"
 
-pthread_mutex_t mutex_SPI;
+//pthread_mutex_t mutex_SPI;
+static unsigned char spi_stat = 0;
 
 void MCP3008_init(void) ;
 void MCP3008_getRawValue(void) ;
@@ -34,7 +36,7 @@ void SPIVariables_init(SPIVariables *spi_var) {
         pwm_pin[i] = pwm_power[i] = 0;
     }*/
     memset(spi_var, 0, sizeof(SPIVariables));
-    pthread_mutex_init (&spi_var->mutex, NULL);
+//    pthread_mutex_init (&spi_var->mutex, NULL);
     RF24_init();
     MCP3008_init();
 }
@@ -42,7 +44,7 @@ void SPIVariables_init(SPIVariables *spi_var) {
 int SPIVariables_end(SPIVariables *spi_var) {
 //    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
 //    pthread_mutex_unlock (&mutex_SPI);
-    pthread_mutex_destroy(&mutex_SPI);
+//    pthread_mutex_destroy(&mutex_SPI);
     pthread_mutex_destroy(&spi_var->mutex);
     bcm2835_spi_end();
 
@@ -50,18 +52,22 @@ int SPIVariables_end(SPIVariables *spi_var) {
 }
 
 void RF24_Renew(SPIVariables *spi_var) {
-    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
+//    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
+    while ( __sync_lock_test_and_set(&spi_stat, 1) ) sched_yield() ;
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0); //Slave Select on CS0
     RF24_exchangeInfo(&spi_var->control, &spi_var->output);
-    pthread_mutex_unlock (&mutex_SPI);
+    //pthread_mutex_unlock (&mutex_SPI);
+    __sync_lock_release(&spi_stat);
     delay(1);
 }
 
 void MCP3008_Renew(SPIVariables *spi_var) {
-    while (pthread_mutex_trylock(&mutex_SPI) != 0);
+//    while (pthread_mutex_trylock(&mutex_SPI) != 0);
+    while ( __sync_lock_test_and_set(&spi_stat, 1) ) sched_yield() ;
     bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS1
     MCP3008_getRawValue();
-    pthread_mutex_unlock (&mutex_SPI);
+    //pthread_mutex_unlock (&mutex_SPI);
+    __sync_lock_release(&spi_stat);
     while (pthread_mutex_trylock(&spi_var->mutex) != 0);
     MCP3008_getRealData(&spi_var->voltage);
     pthread_mutex_unlock (&spi_var->mutex);

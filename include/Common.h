@@ -2,6 +2,6 @@
 #define	H_COMMON
 
 float Common_GetNorm(float* var, unsigned int n);
-void _usleep(int milisec);
+void _usleep(int micro);
 
 #endif

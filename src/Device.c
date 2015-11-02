@@ -38,9 +38,11 @@
 #define RAD_TO_DEG      (180/M_PI)
 #define NOPWM
 //#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
-#define LOGFILENAME   "Silence2.dat"
+#define LOGFILENAME   "Silence4.dat"
 
 static int iThread = 1;
+//static int global_thread = 0;
+//pthread_mutex_t global_mutex;
 /* A mutex protecting job_queue. */
 //static unsigned int thread_count;
 //static unsigned int thread_adc = 0, thread_mag = 0;
@@ -52,7 +54,7 @@ extern float pi[2];
 //extern float expectAngle[3], expectAngvel[3];
 extern int DEBUG_MODE;
 
-static pthread_t t_magn, t_baro, t_accgyr, t_adc, t_pid;
+static pthread_t t_magn, t_baro, t_adc, t_pid, t_accgyr;
 
 static struct timespec tp1, tp2;
 static unsigned long startTime, procesTime;
@@ -67,13 +69,20 @@ void* Renew_ADC(void *data) {
     pthread_detach(pthread_self());
     SPIVariables* var = (SPIVariables*) data;
     MCP3008_Renew(var);
-    return 0;
+    pthread_exit(NULL);
+}
+
+void* Renew_ADC_cycle(void *data) {
+    //pthread_detach(pthread_self());
+    SPIVariables* var = (SPIVariables*) data;
+    MCP3008_Renew(var);
+    pthread_exit(NULL);
 }
 
 void* Renew_MAG(void *data) {
     pthread_detach(pthread_self());
     measureAndTrigger_magn((I2CVariables*) data);
-    return 0;
+    pthread_exit(NULL);
 }
 
 void* Renew_BAR1(void *data) {
@@ -82,20 +91,29 @@ void* Renew_BAR1(void *data) {
     pthread_detach(pthread_self());
     measureTemp_triggerPres();
 //    stepBaro = 2;
-    return 0;
+    pthread_exit(NULL);
 }
 
 void* Renew_BAR2(void *data) {
     pthread_detach(pthread_self());
     I2CVariables* var = (I2CVariables*) data;
     measurePres_triggerTemp(var);
-    return 0;
+    pthread_exit(NULL);
 }
 
-void Renew_PID(void *data) {
+void* Renew_PID(void *data) {
     pthread_detach(pthread_self());
     Drone_Status *stat = (Drone_Status*) data;
     PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
+#ifndef NOPWM
+    Renew_PWM(&stat->i2c_var);
+#endif
+    pthread_exit(NULL);
+//    return 0;
+}
+
+void Renew_LOG(void *data) {
+    Drone_Status *stat = (Drone_Status*) data;
     fprintf(fp, "%f\t%f\t", T, deltaT);
     fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
     fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
@@ -106,13 +124,9 @@ void Renew_PID(void *data) {
     fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
     fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
     dT_PWM = 0.0;
-#ifndef NOPWM
-    Renew_PWM(&stat->i2c_var);
-#endif
-//    return 0;
 }
 
-void* Renew_accgyr_cycle(void *data) {
+void Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
     clock_gettime(CLOCK_REALTIME, &tp1);
     startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
@@ -125,79 +139,61 @@ void* Renew_accgyr_cycle(void *data) {
         deltaT = (float)procesTime/1000000000.0;
 	if (deltaT < 0.003) continue;
 	dT_PWM += deltaT;
-	while (pthread_mutex_trylock(&stat->i2c_var.mutex) != 0) bcm2835_delayMicroseconds(100);
+	while (pthread_mutex_trylock(&stat->i2c_var.mutex) != 0);
 	//Filter_AcclGyro(stat->i2c_var.accl, stat->i2c_var.gyro);
 	Drone_Renew(stat, &deltaT);
 	AHRS_getAngle(&stat->ahrs, stat->angle);
         if (iDetect%100==0 && DEBUG_MODE){
             //printf("A = : %f, %f, %f, %f\t", stat->angVel[0], stat->angVel[1], stat->angVel[2], stat->altitude_corr);
             printf("Roll = %f, Pitch = %f, Yaw = %f, dt = %E, alti = %f,  ", stat->angle[0], stat->angle[1], stat->angle[2], deltaT, stat->i2c_var.altitude);
-	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) delayMicroseconds(100);
+	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) ;
 	    printf("Voltage : %f\n", stat->spi_var.voltage);
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
 	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
 	pthread_mutex_unlock (&stat->i2c_var.mutex);
-/*
-	if ( iDetect%2==1 ) {
-	    T += dT_PWM;
-	    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
-	    fprintf(fp, "%f\t%f\t", T, deltaT);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.accl[0], stat->i2c_var.accl[1],stat->i2c_var.accl[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
-	    fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
-	    fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
-	    dT_PWM = 0.0;
-#ifndef NOPWM
-            Renew_PWM(&stat->i2c_var);
-#endif
-
-	}
-*/
 //	if (!iThread) puts("Interrupt");
 
-	if ( (iDetect%2) == 1 ) {
-            T += dT_PWM;
-	    Renew_PID(stat);
-//	    pthread_create(&t_pid, NULL, &Renew_PID, (void*) stat);
-	} else if ( (iDetect%2) == 0 ) pthread_create(&t_magn, NULL, &Renew_MAG, (void*) &stat->i2c_var);
-	if ( (iDetect%3000) == 1 ) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
+	T += dT_PWM;
+//	Renew_LOG(stat);
+	if ( (iDetect%2) == 1) {
+	    //Renew_PID(stat);
+	    pthread_create(&t_pid, NULL, &Renew_PID, (void*) stat);
+	} else {
+	    Renew_LOG(stat);
+	    pthread_create(&t_magn, NULL, &Renew_MAG, (void*) &stat->i2c_var);
+	}
+	if ( (iDetect%3000) == 0 ) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
 	if ( (iDetect%9) == 1 ) pthread_create(&t_baro, NULL, &Renew_BAR1, (void*)&stat->i2c_var);
 	else if ( (iDetect%9) == 8 ) pthread_create(&t_baro, NULL, &Renew_BAR2, (void*)&stat->i2c_var);
 
 
-	if (iDetect == 4000) iThread = 0;
+	if (iDetect == 10000) iThread = 0;
 
         iDetect++;
         tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-	//bcm2835_delay(3);
 	_usleep(3200);
-	//delayMicroseconds(3000);
     }
 #ifndef NOPWM
     PWM_reset(&stat->i2c_var);
 #endif
-//    __sync_fetch_and_sub(&thread_count,1);
-    return 0;
+
 }
 
 int Drone_init(Drone_Status *stat) {
     memset(stat, 0, sizeof(Drone_Status));
+
     if (!bcm2835_init()) return -1;
     bcm2835_i2c_begin();
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);         // 400 kHz
-
+/*
     ADXL345_init();
     L3G4200D_init();
     HMC5883L_init();
     BMP085_init();
     PCA9685PW_init();
-
+*/
     I2CVariables_init(&stat->i2c_var);
 
     RF24_init();
@@ -211,10 +207,10 @@ void Drone_end(Drone_Status *stat) {
 //        __sync_synchronize();
 //        _usleep(100000);
 //    } while (thread_count);
-    pthread_join(t_accgyr, (void*)stat);
+//    pthread_join(t_accgyr, (void*)stat);
     fclose(fp);
-    I2CVariables_end(&stat->i2c_var);
     SPIVariables_end(&stat->spi_var);
+    I2CVariables_end(&stat->i2c_var);
     bcm2835_i2c_end();
     if (DEBUG_MODE) puts("END!");
 //    return 0;
@@ -241,7 +237,6 @@ void Drone_Start(Drone_Status *stat) {
     stat->angle[1]  = atan2(stat->i2c_cali.accl_offset[0], Common_GetNorm(stat->i2c_cali.accl_offset, 3)) * RAD_TO_DEG;
     stat->angle[2] = acos(stat->i2c_cali.magn_offset[1]/Common_GetNorm(stat->i2c_cali.magn_offset, 2)) * RAD_TO_DEG;	// yaw
     AHRS_init(&stat->ahrs, stat->angle, pi);
-//    Quaternion_From_Stat(stat);
 
     float dt_temp = 0.01;
     for (i=0; i<3; ++i) {
@@ -280,8 +275,9 @@ void Drone_Start(Drone_Status *stat) {
 	exit(1);
     }
 
-    pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
-    _usleep(3000);
+    Renew_accgyr_cycle(stat);
+    //pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
+    //_usleep(3000);
     //Renew_accgyr_cycle(stat);
 }
 

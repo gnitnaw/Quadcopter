@@ -28,11 +28,11 @@ float Common_GetNorm(float* var, unsigned int n) {
     return sqrtf(sum);
 }
 
-void _usleep(int milisec)
+void _usleep(int micro)
 {
     struct timespec req = {0};
     req.tv_sec = 0;
-    req.tv_nsec = milisec * 1000L;
+    req.tv_nsec = micro * 1000L;
     nanosleep(&req, (struct timespec *)NULL);
 }
 

@@ -213,7 +213,7 @@ void L3G4200D_init(void) {
     bcm2835_i2c_write(regaddr,2);
 
     regaddr[0] = L3G4200D_CTRL_REG2;		// Filter related
-    regaddr[1] = 0x00;
+    regaddr[1] = 0x04;
     bcm2835_i2c_write(regaddr,2);
 
     regaddr[0] = L3G4200D_CTRL_REG3;		// Interrupt related
