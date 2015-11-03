@@ -32,17 +32,23 @@
 #include "PCA9685PW.h"
 #include "GY80.h"
 
-#define NUM_THREADS	1
+#define NUM_THREADS	5
 #define ACC_UNIT        9.79
 #define ALTITUDE_FILTER 0.995
 #define RAD_TO_DEG      (180/M_PI)
-#define NOPWM
+//#define NOPWM
 //#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
 #define LOGFILENAME   "Silence4.dat"
 
+#define THREAD_MAG	0
+#define THREAD_PID	1
+#define THREAD_MCP3008	2
+#define THREAD_BARO1	3
+#define THREAD_BARO2    4
 static int iThread = 1;
-//static int global_thread = 0;
-//pthread_mutex_t global_mutex;
+static int global_thread = -1;
+static pthread_mutex_t global_mutex;
+static pthread_cond_t cond[NUM_THREADS];
 /* A mutex protecting job_queue. */
 //static unsigned int thread_count;
 //static unsigned int thread_adc = 0, thread_mag = 0;
@@ -54,7 +60,7 @@ extern float pi[2];
 //extern float expectAngle[3], expectAngvel[3];
 extern int DEBUG_MODE;
 
-static pthread_t t_magn, t_baro, t_adc, t_pid, t_accgyr;
+static pthread_t t_mag, t_baro1, t_baro2, t_adc, t_pid;
 
 static struct timespec tp1, tp2;
 static unsigned long startTime, procesTime;
@@ -65,39 +71,80 @@ extern float angle_expect[3];
 static FILE *fp;
 static float T = 0;
 
-void* Renew_ADC(void *data) {
-    pthread_detach(pthread_self());
-    SPIVariables* var = (SPIVariables*) data;
-    MCP3008_Renew(var);
-    pthread_exit(NULL);
-}
-
 void* Renew_ADC_cycle(void *data) {
-    //pthread_detach(pthread_self());
     SPIVariables* var = (SPIVariables*) data;
-    MCP3008_Renew(var);
+    while (iThread) {
+	pthread_mutex_lock(&global_mutex);
+	while (global_thread != THREAD_MCP3008) {
+	    pthread_cond_wait(&cond[THREAD_MCP3008], &global_mutex);
+	}
+    	if (iThread) MCP3008_Renew(var);
+	global_thread = -1;
+	pthread_mutex_unlock(&global_mutex);
+    }
     pthread_exit(NULL);
 }
 
-void* Renew_MAG(void *data) {
-    pthread_detach(pthread_self());
-    measureAndTrigger_magn((I2CVariables*) data);
-    pthread_exit(NULL);
-}
-
-void* Renew_BAR1(void *data) {
-//    stepBaro = 1;
-//    I2CVariables* var = (I2CVariables*) data;
-    pthread_detach(pthread_self());
-    measureTemp_triggerPres();
-//    stepBaro = 2;
-    pthread_exit(NULL);
-}
-
-void* Renew_BAR2(void *data) {
-    pthread_detach(pthread_self());
+void* Renew_MAG_cycle(void *data) {
     I2CVariables* var = (I2CVariables*) data;
-    measurePres_triggerTemp(var);
+    while (iThread) {
+        pthread_mutex_lock(&global_mutex);
+        while (global_thread != THREAD_MAG) {
+            pthread_cond_wait(&cond[THREAD_MAG], &global_mutex);
+        }
+	if (iThread) {
+	    measureAndTrigger_magn(var);
+	    if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
+	    else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
+	}
+        global_thread = -1;
+        pthread_mutex_unlock(&global_mutex);
+    }
+    pthread_exit(NULL);
+}
+
+void* Renew_BAR1_cycle(void *data) {
+    while (iThread) {
+        pthread_mutex_lock(&global_mutex);
+        while (global_thread != THREAD_BARO1) {
+            pthread_cond_wait(&cond[THREAD_BARO1], &global_mutex);
+        }
+	if (iThread) measureTemp_triggerPres();
+        global_thread = -1;
+        pthread_mutex_unlock(&global_mutex);
+    }
+    pthread_exit(NULL);
+}
+
+void* Renew_BAR2_cycle(void *data) {
+    I2CVariables* var = (I2CVariables*) data;
+    while (iThread) {
+        pthread_mutex_lock(&global_mutex);
+        while (global_thread != THREAD_BARO2) {
+            pthread_cond_wait(&cond[THREAD_BARO2], &global_mutex);
+        }
+        if (iThread) measurePres_triggerTemp(var);
+        global_thread = -1;
+        pthread_mutex_unlock(&global_mutex);
+    }
+    pthread_exit(NULL);
+}
+
+void* Renew_PID_cycle(void *data) {
+    I2CVariables* var = (I2CVariables*) data;
+    while (iThread) {
+        pthread_mutex_lock(&global_mutex);
+        while (global_thread != THREAD_PID) {
+            pthread_cond_wait(&cond[THREAD_PID], &global_mutex);
+        }
+        if (iThread) {
+	    Renew_PWM(var);
+	    if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
+	    else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
+	}
+        global_thread = -1;
+        pthread_mutex_unlock(&global_mutex);
+    }
     pthread_exit(NULL);
 }
 
@@ -151,29 +198,42 @@ void Renew_accgyr_cycle(void *data) {
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
 	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
+	PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
 	pthread_mutex_unlock (&stat->i2c_var.mutex);
 //	if (!iThread) puts("Interrupt");
 
 	T += dT_PWM;
 //	Renew_LOG(stat);
 	if ( (iDetect%2) == 1) {
-	    //Renew_PID(stat);
-	    pthread_create(&t_pid, NULL, &Renew_PID, (void*) stat);
+            global_thread = THREAD_PID;
+            pthread_cond_signal(&cond[global_thread]);
 	} else {
 	    Renew_LOG(stat);
-	    pthread_create(&t_magn, NULL, &Renew_MAG, (void*) &stat->i2c_var);
+	    global_thread = THREAD_MAG;
+            pthread_cond_signal(&cond[global_thread]);
 	}
-	if ( (iDetect%3000) == 0 ) pthread_create(&t_adc, NULL, &Renew_ADC, (void*) &stat->spi_var);
-	if ( (iDetect%9) == 1 ) pthread_create(&t_baro, NULL, &Renew_BAR1, (void*)&stat->i2c_var);
-	else if ( (iDetect%9) == 8 ) pthread_create(&t_baro, NULL, &Renew_BAR2, (void*)&stat->i2c_var);
 
+	if ( (iDetect%3000) == 0 ) {
+	    global_thread = THREAD_MCP3008;
+	    pthread_cond_signal(&cond[global_thread]);
+	}
+/*
+	if ( (iDetect%10) == 1 ) {
+            global_thread = THREAD_BARO1;
+            pthread_cond_signal(&cond[global_thread]);
+	}
+	else if ( (iDetect%10) == 8 ) {
+            global_thread = THREAD_BARO2;
+            pthread_cond_signal(&cond[global_thread]);
+	}
+*/
 
-	if (iDetect == 10000) iThread = 0;
+	if (iDetect == 5000) iThread = 0;
 
         iDetect++;
         tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
-	_usleep(3200);
+	_usleep(3500);
     }
 #ifndef NOPWM
     PWM_reset(&stat->i2c_var);
@@ -208,6 +268,31 @@ void Drone_end(Drone_Status *stat) {
 //        _usleep(100000);
 //    } while (thread_count);
 //    pthread_join(t_accgyr, (void*)stat);
+    int i;
+
+    global_thread = THREAD_MAG;
+    pthread_cond_signal(&cond[global_thread]);
+    pthread_join(t_mag, NULL);
+
+    global_thread = THREAD_PID;
+    pthread_cond_signal(&cond[global_thread]);
+    pthread_join(t_pid, NULL);
+/*
+    global_thread = THREAD_BARO1;
+    pthread_cond_signal(&cond[global_thread]);
+    pthread_join(t_baro1, NULL);
+
+    global_thread = THREAD_BARO2;
+    pthread_cond_signal(&cond[global_thread]);
+    pthread_join(t_baro2, NULL);
+*/
+    global_thread = THREAD_MCP3008;
+    pthread_cond_signal(&cond[global_thread]);
+    pthread_join(t_adc, NULL);
+
+    for (i=0; i<5; ++i) pthread_cond_destroy(&cond[i]);
+    pthread_mutex_destroy(&global_mutex);
+
     fclose(fp);
     SPIVariables_end(&stat->spi_var);
     I2CVariables_end(&stat->i2c_var);
@@ -256,10 +341,23 @@ void Drone_Start(Drone_Status *stat) {
 
     Filter_init() ;
     Trigger_magn();
+    Trigger_baroTemp();
+    _usleep(5000);
 //    angle_expect[0] = 0.0;
 //    angle_expect[1] = 0.0;
     angle_expect[2] = stat->angle[2];
     if (DEBUG_MODE) printf("Start Eular Angle : %f, %f, %f\n", stat->angle[0], stat->angle[1], stat->angle[2]);
+
+    for (i=0; i<5; ++i) {
+        pthread_cond_init(&cond[i],NULL);
+    }
+    pthread_mutex_init(&global_mutex,NULL);
+
+    pthread_create(&t_mag, NULL, &Renew_MAG_cycle, (void*) &stat->i2c_var);
+    pthread_create(&t_pid, NULL, &Renew_PID_cycle, (void*) &stat->i2c_var);
+//    pthread_create(&t_baro1, NULL, &Renew_BAR1_cycle, (void*) &stat->i2c_var);
+//    pthread_create(&t_baro2, NULL, &Renew_BAR2_cycle, (void*) &stat->i2c_var);
+    pthread_create(&t_adc, NULL, &Renew_ADC_cycle, (void*) &stat->spi_var);
 
 #ifndef NOPWM
     PWM_init(&stat->i2c_var);
@@ -274,6 +372,7 @@ void Drone_Start(Drone_Status *stat) {
 	puts("Error when opening file!");
 	exit(1);
     }
+
 
     Renew_accgyr_cycle(stat);
     //pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
