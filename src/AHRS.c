@@ -113,26 +113,5 @@ void AHRS_renew(AHRS* ahrs, float* deltaT, float* accl, float* gyro, float* magn
     ahrs->norm = Common_GetNorm(ahrs->q, 4);
 
     for (i=0; i<4; ++i) ahrs->q[i] /= ahrs->norm;
-/*
-    stat->accl_ref[0] = 2*( stat->i2c_var.accl[0]*(0.5-q[2]*q[2]-q[3]*q[3]) + stat->i2c_var.accl[1]*(q[1]*q[2]-q[0]*q[3]) + stat->i2c_var.accl[2]*(q[1]*q[3]+q[0]*q[2]) );
-    stat->accl_ref[1] = 2*( stat->i2c_var.accl[0]*(q[1]*q[2]+q[0]*q[3]) + stat->i2c_var.accl[1]*(0.5-q[1]*q[1]-q[3]*q[3]) + stat->i2c_var.accl[2]*(q[2]*q[3]-q[0]*q[1]) );
-    stat->accl_ref[2] = 2*( stat->i2c_var.accl[0]*(q[1]*q[3]-q[0]*q[2]) + stat->i2c_var.accl[1]*(q[2]*q[3]+q[0]*q[1]) + stat->i2c_var.accl[2]*(0.5-q[1]*q[1]-q[2]*q[2]) );
-
-    for (i=0; i<2; ++i) {
-	stat->a[i] = trunc(stat->accl_ref[i]/ACCL_UNIT) * ACCL_UNIT * G_VALUE;
-	//stat->a[i] = stat->accl_ref[i] * G_VALUE;
-    }
-    stat->a[2] = trunc((stat->accl_ref[2]-stat->i2c_cali.accl_abs)/ACCL_UNIT) * ACCL_UNIT * G_VALUE;
-    //stat->a[2] = (stat->accl_ref[2]-stat->i2c_cali.accl_abs) * G_VALUE + 0.001;
-//    stat->a[0] += 0.001;
-//    stat->a[1] -= 0.012;
-
-    for (i=0; i<3; ++i){
-	stat->x[i] += *deltaT * stat->v[i] + 0.5 * *deltaT * *deltaT * stat->a[i];
-	stat->v[i] += *deltaT * stat->a[i];
-    }
-
-    stat->x[2] = stat->x[2] * (1-Ki*10) + stat->altitude_corr * Ki*10;
-*/
 }
 

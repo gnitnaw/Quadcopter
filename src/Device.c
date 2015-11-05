@@ -26,25 +26,22 @@
 #include <bcm2835.h>
 #include "Common.h"
 #include "Device.h"
-//#include "Quaternion.h"
 #include "Calibration.h"
 #include "PID.h"
-#include "PCA9685PW.h"
-#include "GY80.h"
+//#include "PCA9685PW.h"
+//#include "GY80.h"
 
-#define NUM_THREADS	5
-#define ACC_UNIT        9.79
-#define ALTITUDE_FILTER 0.995
+#define G_VALUE		9.79
+#define NUM_THREADS	2
+#define ALTITUDE_FILTER 0.95
 #define RAD_TO_DEG      (180/M_PI)
 //#define NOPWM
 //#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
-#define LOGFILENAME   "Silence4.dat"
+#define LOGFILENAME   "Silence3.dat"
 
 #define THREAD_MAG	0
 #define THREAD_PID	1
-#define THREAD_MCP3008	2
-#define THREAD_BARO1	3
-#define THREAD_BARO2    4
+
 static int iThread = 1;
 static int global_thread = -1;
 static pthread_mutex_t global_mutex;
@@ -52,7 +49,7 @@ static pthread_cond_t cond[NUM_THREADS];
 /* A mutex protecting job_queue. */
 //static unsigned int thread_count;
 //static unsigned int thread_adc = 0, thread_mag = 0;
-static int ret;
+static int ret, iPID=0, iMAG=0, iMCP=0;
 static float factor;
 static unsigned long iDetect = 0;
 extern unsigned short THROTTLE;
@@ -60,7 +57,7 @@ extern float pi[2];
 //extern float expectAngle[3], expectAngvel[3];
 extern int DEBUG_MODE;
 
-static pthread_t t_mag, t_baro1, t_baro2, t_adc, t_pid;
+static pthread_t t_mag, t_pid;
 
 static struct timespec tp1, tp2;
 static unsigned long startTime, procesTime;
@@ -71,22 +68,22 @@ extern float angle_expect[3];
 static FILE *fp;
 static float T = 0;
 
-void* Renew_ADC_cycle(void *data) {
-    SPIVariables* var = (SPIVariables*) data;
-    while (iThread) {
-	pthread_mutex_lock(&global_mutex);
-	while (global_thread != THREAD_MCP3008) {
-	    pthread_cond_wait(&cond[THREAD_MCP3008], &global_mutex);
-	}
-    	if (iThread) MCP3008_Renew(var);
-	global_thread = -1;
-	pthread_mutex_unlock(&global_mutex);
-    }
-    pthread_exit(NULL);
+void Renew_LOG(Drone_Status *stat) {
+    fprintf(fp, "%f\t%f\t", T, deltaT);
+    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
+    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
+    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
+    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
+//    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
+    fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
+    fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
+    dT_PWM = 0.0;
 }
-
 void* Renew_MAG_cycle(void *data) {
-    I2CVariables* var = (I2CVariables*) data;
+    Drone_Status *stat = (Drone_Status*) data;
+    I2CVariables* var = &stat->i2c_var;
+    SPIVariables* spi = &stat->spi_var;
+
     while (iThread) {
         pthread_mutex_lock(&global_mutex);
         while (global_thread != THREAD_MAG) {
@@ -94,8 +91,13 @@ void* Renew_MAG_cycle(void *data) {
         }
 	if (iThread) {
 	    measureAndTrigger_magn(var);
+	    ++iMAG;
 	    if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
 	    else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
+	    else if ( (iDetect%999) == 2 ) {
+		MCP3008_Renew(spi);
+		++iMCP;
+	    }
 	}
         global_thread = -1;
         pthread_mutex_unlock(&global_mutex);
@@ -103,32 +105,6 @@ void* Renew_MAG_cycle(void *data) {
     pthread_exit(NULL);
 }
 
-void* Renew_BAR1_cycle(void *data) {
-    while (iThread) {
-        pthread_mutex_lock(&global_mutex);
-        while (global_thread != THREAD_BARO1) {
-            pthread_cond_wait(&cond[THREAD_BARO1], &global_mutex);
-        }
-	if (iThread) measureTemp_triggerPres();
-        global_thread = -1;
-        pthread_mutex_unlock(&global_mutex);
-    }
-    pthread_exit(NULL);
-}
-
-void* Renew_BAR2_cycle(void *data) {
-    I2CVariables* var = (I2CVariables*) data;
-    while (iThread) {
-        pthread_mutex_lock(&global_mutex);
-        while (global_thread != THREAD_BARO2) {
-            pthread_cond_wait(&cond[THREAD_BARO2], &global_mutex);
-        }
-        if (iThread) measurePres_triggerTemp(var);
-        global_thread = -1;
-        pthread_mutex_unlock(&global_mutex);
-    }
-    pthread_exit(NULL);
-}
 
 void* Renew_PID_cycle(void *data) {
     I2CVariables* var = (I2CVariables*) data;
@@ -138,40 +114,19 @@ void* Renew_PID_cycle(void *data) {
             pthread_cond_wait(&cond[THREAD_PID], &global_mutex);
         }
         if (iThread) {
-	    Renew_PWM(var);
-	    if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
-	    else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
-	}
+#ifndef NOPWM
+            Renew_PWM(var);
+#endif
+	    ++iPID;
+            if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
+            else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
+        }
         global_thread = -1;
         pthread_mutex_unlock(&global_mutex);
     }
     pthread_exit(NULL);
 }
 
-void* Renew_PID(void *data) {
-    pthread_detach(pthread_self());
-    Drone_Status *stat = (Drone_Status*) data;
-    PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
-#ifndef NOPWM
-    Renew_PWM(&stat->i2c_var);
-#endif
-    pthread_exit(NULL);
-//    return 0;
-}
-
-void Renew_LOG(void *data) {
-    Drone_Status *stat = (Drone_Status*) data;
-    fprintf(fp, "%f\t%f\t", T, deltaT);
-    fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
-    fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
-    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.accl[0], stat->i2c_var.accl[1],stat->i2c_var.accl[2]);
-    fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
-    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
-    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
-    fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
-    fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
-    dT_PWM = 0.0;
-}
 
 void Renew_accgyr_cycle(void *data) {
     Drone_Status *stat = (Drone_Status*) data;
@@ -203,31 +158,20 @@ void Renew_accgyr_cycle(void *data) {
 //	if (!iThread) puts("Interrupt");
 
 	T += dT_PWM;
-//	Renew_LOG(stat);
+	if ((iDetect%3) == 1) Renew_LOG(stat);
 	if ( (iDetect%2) == 1) {
             global_thread = THREAD_PID;
             pthread_cond_signal(&cond[global_thread]);
 	} else {
-	    Renew_LOG(stat);
 	    global_thread = THREAD_MAG;
             pthread_cond_signal(&cond[global_thread]);
 	}
-
-	if ( (iDetect%3000) == 0 ) {
+/*
+	if ( (iDetect%2999) == 0 ) {
 	    global_thread = THREAD_MCP3008;
 	    pthread_cond_signal(&cond[global_thread]);
 	}
-/*
-	if ( (iDetect%10) == 1 ) {
-            global_thread = THREAD_BARO1;
-            pthread_cond_signal(&cond[global_thread]);
-	}
-	else if ( (iDetect%10) == 8 ) {
-            global_thread = THREAD_BARO2;
-            pthread_cond_signal(&cond[global_thread]);
-	}
 */
-
 	if (iDetect == 5000) iThread = 0;
 
         iDetect++;
@@ -278,21 +222,14 @@ void Drone_end(Drone_Status *stat) {
     pthread_cond_signal(&cond[global_thread]);
     pthread_join(t_pid, NULL);
 /*
-    global_thread = THREAD_BARO1;
-    pthread_cond_signal(&cond[global_thread]);
-    pthread_join(t_baro1, NULL);
-
-    global_thread = THREAD_BARO2;
-    pthread_cond_signal(&cond[global_thread]);
-    pthread_join(t_baro2, NULL);
-*/
     global_thread = THREAD_MCP3008;
     pthread_cond_signal(&cond[global_thread]);
     pthread_join(t_adc, NULL);
-
-    for (i=0; i<5; ++i) pthread_cond_destroy(&cond[i]);
+*/
+    for (i=0; i<NUM_THREADS; ++i) pthread_cond_destroy(&cond[i]);
     pthread_mutex_destroy(&global_mutex);
 
+    printf("iMAG = %d, iPID = %d, iMCP =%d\n", iMAG, iPID, iMCP);
     fclose(fp);
     SPIVariables_end(&stat->spi_var);
     I2CVariables_end(&stat->i2c_var);
@@ -348,23 +285,19 @@ void Drone_Start(Drone_Status *stat) {
     angle_expect[2] = stat->angle[2];
     if (DEBUG_MODE) printf("Start Eular Angle : %f, %f, %f\n", stat->angle[0], stat->angle[1], stat->angle[2]);
 
-    for (i=0; i<5; ++i) {
+    for (i=0; i<NUM_THREADS; ++i) {
         pthread_cond_init(&cond[i],NULL);
     }
     pthread_mutex_init(&global_mutex,NULL);
 
-    pthread_create(&t_mag, NULL, &Renew_MAG_cycle, (void*) &stat->i2c_var);
+    pthread_create(&t_mag, NULL, &Renew_MAG_cycle, (void*) stat);
     pthread_create(&t_pid, NULL, &Renew_PID_cycle, (void*) &stat->i2c_var);
-//    pthread_create(&t_baro1, NULL, &Renew_BAR1_cycle, (void*) &stat->i2c_var);
-//    pthread_create(&t_baro2, NULL, &Renew_BAR2_cycle, (void*) &stat->i2c_var);
-    pthread_create(&t_adc, NULL, &Renew_ADC_cycle, (void*) &stat->spi_var);
 
 #ifndef NOPWM
     PWM_init(&stat->i2c_var);
     _usleep(2000000);
 #endif
 
-//    thread_count = NUM_THREADS;
     if (DEBUG_MODE) puts("Drone -- Run thread!");
 
     fp = fopen(LOGFILENAME,"w");
@@ -375,9 +308,6 @@ void Drone_Start(Drone_Status *stat) {
 
 
     Renew_accgyr_cycle(stat);
-    //pthread_create(&t_accgyr, NULL, &Renew_accgyr_cycle, (void*) stat);
-    //_usleep(3000);
-    //Renew_accgyr_cycle(stat);
 }
 
 void Drone_Renew(Drone_Status *stat, float* deltaT) {
@@ -402,15 +332,14 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
         ret |= (1<<11);
     }
 
-    stat->acc_magnitude = Common_GetNorm(stat->i2c_var.accl, 3);
-    stat->mag_magnitude = Common_GetNorm(stat->i2c_var.magn, 3);
+//    stat->acc_magnitude = Common_GetNorm(stat->i2c_var.accl, 3);
+//    stat->mag_magnitude = Common_GetNorm(stat->i2c_var.magn, 3);
     stat->yaw_real = acos(stat->i2c_var.magn[0]/Common_GetNorm(stat->i2c_var.magn, 2));
     if ( (factor=stat->acc_magnitude/stat->i2c_cali.accl_abs)>2.5 || factor < 0.5 ) ret |= (1<<6);                        // Data may be incorrect
 
     if ( (factor=stat->mag_magnitude/stat->i2c_cali.magn_abs)>1.5 || factor < 0.5 ) ret |= (1<<4);                        // Data may be incorrect
 
     for (i=0; i<3; ++i) stat->gyro_corr[i] = stat->i2c_var.gyro[i] - stat->i2c_cali.gyro_offset[i];
-//    for (i=0; i<3; ++i) stat->gyro_corr[i] = stat->i2c_var.gyro[i];
     if (stat->i2c_var.altitude>300) {
 	stat->altitude_corr = stat->altitude_corr * ALTITUDE_FILTER + (stat->i2c_var.altitude-stat->i2c_cali.altitude_offset) * (1-ALTITUDE_FILTER);
     }
@@ -419,7 +348,19 @@ void Drone_Renew(Drone_Status *stat, float* deltaT) {
     Drone_NoiseFilter(stat) ;
 
     AHRS_renew(&stat->ahrs, deltaT, stat->accl_est, stat->gyro_corr, stat->magn_est);
+/*
+    if (iDetect>1000) {
+    	for (i=0; i<2; ++i) {
+    	    stat->ahrs.a[i] = stat->ahrs.accl_ref[i] * G_VALUE;
+    	}
+    	stat->ahrs.a[2] = (stat->ahrs.accl_ref[2]-stat->acc_magnitude) * G_VALUE;
 
+    	for (i=0; i<3; ++i) {
+	    stat->ahrs.x[i] = ALTITUDE_FILTER*stat->ahrs.x[i] + (1-ALTITUDE_FILTER)*(stat->ahrs.x[i]+ stat->ahrs.vel[i] * *deltaT + 0.5 * stat->ahrs.a[i] * *deltaT * *deltaT);
+	    stat->ahrs.vel[i] = ALTITUDE_FILTER*stat->ahrs.vel[i] + (1-ALTITUDE_FILTER)*(stat->ahrs.vel[i]+stat->ahrs.a[i] * *deltaT);
+    	}
+    }
+*/
 }
 
 

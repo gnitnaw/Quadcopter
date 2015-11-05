@@ -473,7 +473,7 @@ void BMP085_getRealData(long *UT, long *UP, float *RTD, long *RP, float *altitud
 
     *RP = *RP + ((X1 + X2 + 3791)>>4);
 
-    *altitude = 44330 * (1 - pow((*RP)*1.0/P0, 1/5.255) );
+    *altitude = 44330 * (1 - pow(((float)*RP)/P0, 1/5.255) );
 
 //    return 0;
 }

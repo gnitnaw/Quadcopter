@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fgsl/gsl_statistics.h>
+#include <gsl/gsl_statistics.h>
 #include "Common.h"
 #include "Calibration.h"
 #define N_SAMPLE_CALIBRATION	2000
@@ -68,8 +68,8 @@ void Calibration_getSD_singlethread(void *cal) {
     }
 
     for (j=0; j<nItem; ++j) {
-        i2c_caliThread->mean[j] = (float) gsl_stats_mean(&var_cali[j][0], 1, nSample);
-        i2c_caliThread->sd[j] = (float) gsl_stats_sd(&var_cali[j][0], 1, nSample);
+        i2c_caliThread->mean[j] = (float) gsl_stats_float_mean(&var_cali[j][0], 1, nSample);
+        i2c_caliThread->sd[j] = (float) gsl_stats_float_sd(&var_cali[j][0], 1, nSample);
 	free(var_cali[j]);
     }
 

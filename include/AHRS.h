@@ -29,6 +29,7 @@ typedef struct {
     float eInt[3];
     float Kp, Ki;
     float angVel[3];
+//    float x[3], vel[3], a[3], accl_ref[3];
 } AHRS;
 
 void AHRS_init(AHRS* ahrs, float* angle, float* pi);
