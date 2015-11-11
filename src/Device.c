@@ -37,7 +37,7 @@
 #define RAD_TO_DEG      (180/M_PI)
 //#define NOPWM
 //#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
-#define LOGFILENAME   "Silence3.dat"
+#define LOGFILENAME   "NO_RT_P49.dat"
 
 #define THREAD_MAG	0
 #define THREAD_PID	1
@@ -172,7 +172,7 @@ void Renew_accgyr_cycle(void *data) {
 	    pthread_cond_signal(&cond[global_thread]);
 	}
 */
-	if (iDetect == 5000) iThread = 0;
+	if (iDetect == 5) iThread = 0;
 
         iDetect++;
         tp1 = tp2;
