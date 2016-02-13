@@ -14,11 +14,21 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+typedef struct {
+    char horDirection[2];
+    char verDirection;
+    char rotateDirection;
+    unsigned int power;
+    unsigned char switchValue;
+} Command;
+
 */
 
 
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include <sched.h>
 #include <bcm2835.h>
 #include "SPIControl.h"
@@ -36,40 +46,43 @@ void SPIVariables_init(SPIVariables *spi_var) {
         pwm_pin[i] = pwm_power[i] = 0;
     }*/
     memset(spi_var, 0, sizeof(SPIVariables));
-//    pthread_mutex_init (&spi_var->mutex, NULL);
     RF24_init();
     MCP3008_init();
 }
 
 int SPIVariables_end(SPIVariables *spi_var) {
-//    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
-//    pthread_mutex_unlock (&mutex_SPI);
-//    pthread_mutex_destroy(&mutex_SPI);
     pthread_mutex_destroy(&spi_var->mutex);
     bcm2835_spi_end();
 
     return 0;
 }
 
-void RF24_Renew(SPIVariables *spi_var) {
-//    while (pthread_mutex_trylock(&mutex_SPI) != 0) delayMicroseconds(100);
+int RF24_Renew(SPIVariables *spi_var) {
     while ( __sync_lock_test_and_set(&spi_stat, 1) ) sched_yield() ;
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS0); //Slave Select on CS0
-    RF24_exchangeInfo(&spi_var->control, &spi_var->output);
-    //pthread_mutex_unlock (&mutex_SPI);
+//    bcm2835_spi_chipSelect(BCM2835_SPI_CS0); //Slave Select on CS0
+//    RF24_exchangeInfo(&spi_var->control, &spi_var->output);
+    int iR = RF24_receiveInfo(spi_var->control, 4);
+    if (iR>0) Decode_Command(spi_var);
     __sync_lock_release(&spi_stat);
-    delay(1);
+    return iR;
 }
 
 void MCP3008_Renew(SPIVariables *spi_var) {
-//    while (pthread_mutex_trylock(&mutex_SPI) != 0);
     while ( __sync_lock_test_and_set(&spi_stat, 1) ) sched_yield() ;
     bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS1
     MCP3008_getRawValue();
-    //pthread_mutex_unlock (&mutex_SPI);
+    bcm2835_spi_chipSelect(BCM2835_SPI_CS0); //Slave Select on CS0
     __sync_lock_release(&spi_stat);
     while (pthread_mutex_trylock(&spi_var->mutex) != 0);
     MCP3008_getRealData(&spi_var->voltage);
     pthread_mutex_unlock (&spi_var->mutex);
-//    delay(5000);
+}
+
+void Decode_Command(SPIVariables *spi_var) {
+    spi_var->com.horDirection[0] = (signed char)((spi_var->control[0]>>4) & 0xF) -1;
+    spi_var->com.horDirection[1] = (signed char)(spi_var->control[0] &0xF) -1;
+    spi_var->com.angle_expect[0] = 5 * spi_var->com.horDirection[0];
+    spi_var->com.angle_expect[1] = 5 * spi_var->com.horDirection[1];
+    spi_var->com.power = 1640 + 1640*spi_var->control[2]/254;
+    spi_var->com.switchValue = spi_var->control[3]>>6 ;
 }

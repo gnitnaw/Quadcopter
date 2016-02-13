@@ -21,15 +21,27 @@
 #include "RF24_Interface.h"
 
 typedef struct {
+    signed char horDirection[2];
+    signed char verDirection;
+    signed char rotateDirection;
+    float angle_expect[3];
+    unsigned int power;
+    unsigned char switchValue;
+} Command;
+
+typedef struct {
     pthread_mutex_t mutex;
     float voltage;
-    int control;
-    int output;
+    unsigned char control[4];
+    unsigned long output;
+    Command com;
 } SPIVariables;
 
 void SPIVariables_init(SPIVariables *spi_var);
 int SPIVariables_end(SPIVariables *spi_var);
-void RF24_Renew(SPIVariables *spi_var);
+int RF24_Renew(SPIVariables *spi_var);
 void MCP3008_Renew(SPIVariables *spi_var);
+
+void Decode_Command(SPIVariables *spi_var);
 
 #endif

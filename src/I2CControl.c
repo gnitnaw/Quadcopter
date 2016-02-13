@@ -286,10 +286,13 @@ void PWM_init(I2CVariables *i2c_var) {
 }
 
 void PWM_reset(I2CVariables *i2c_var) {
-    //while (pthread_mutex_trylock(&i2c_var->mutex) != 0);
+    int i;
     while ( __sync_lock_test_and_set(&i2c_stat, 1) ) sched_yield() ;
     PCA9685PW_PWMReset();
-    //pthread_mutex_unlock (&i2c_var->mutex);
+    for (i=0; i<4; ++i) {
+        i2c_var->PWM_power[i] = 1640;
+    }
+
     __sync_lock_release(&i2c_stat);
 }
 int Renew_PWM_read(I2CVariables *i2c_var) {

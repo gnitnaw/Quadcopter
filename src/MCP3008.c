@@ -27,7 +27,7 @@ static int msbRead=0, adcRead0=0;
 extern float v_input;
 
 void MCP3008_init(void) {
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS0
+    bcm2835_spi_chipSelect(BCM2835_SPI_CS1); //Slave Select on CS1
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS1, LOW);
 }
 

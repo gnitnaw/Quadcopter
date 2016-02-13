@@ -6,7 +6,7 @@
     6  version 2 as published by the Free Software Foundation.
     7  */
 
-#include "compatibility.h"
+#include "RF24/compatibility.h"
 
 
 static long mtime, seconds, useconds;

@@ -19,6 +19,6 @@ typedef struct {
 } PIDControl;
 
 void PID_init(PIDControl * pid, float* pid_setting);
-void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, float* gyro, int *pwm, float *dt, int* power);
+void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, float* gyro, int *pwm, float *dt, unsigned int* power);
 
 #endif

@@ -32,4 +32,7 @@ void Data_Renew(Drone_Status *stat, float* deltaT);
 void Drone_NoiseFilter(Drone_Status *stat);
 void Quaternion_From_Stat(Drone_Status *stat);
 void Quaternion_renew_Drone(Drone_Status *stat, float* deltaT);
+void Drone_PID_update(Drone_Status *stat);
+void Drone_powerOff(Drone_Status *stat);
+
 #endif

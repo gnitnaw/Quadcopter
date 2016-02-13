@@ -27,7 +27,7 @@ void PID_init(PIDControl *pid, float* pid_setting) {
     memcpy(pid, pid_setting, sizeof(float)*8);
 }
 
-void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, float* gyro, int *pwm, float *dt, int* power) {
+void PID_update(PIDControl *pid, float *angle_expect, float *angle_measured, float* gyro, int *pwm, float *dt, unsigned int* power) {
     for (i=0; i<3; ++i) {
 	//gyro_mean[i] = gyro_mean[i] * 0.5 + gyro[i] * 0.5;
 	pid->angle_err[i] = angle_expect[i] - angle_measured[i];

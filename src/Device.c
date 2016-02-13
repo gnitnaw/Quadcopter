@@ -37,7 +37,7 @@
 #define RAD_TO_DEG      (180/M_PI)
 //#define NOPWM
 //#define LOGFILENAME	"Kp_7_105_0.2_two.dat"
-#define LOGFILENAME   "NO_RT_P49.dat"
+#define LOGFILENAME   "RT_P49.dat"
 
 #define THREAD_MAG	0
 #define THREAD_PID	1
@@ -49,7 +49,7 @@ static pthread_cond_t cond[NUM_THREADS];
 /* A mutex protecting job_queue. */
 //static unsigned int thread_count;
 //static unsigned int thread_adc = 0, thread_mag = 0;
-static int ret, iPID=0, iMAG=0, iMCP=0;
+static int ret, iPID=0, iMAG=0, iMCP=0, iRF24=0;
 static float factor;
 static unsigned long iDetect = 0;
 extern unsigned short THROTTLE;
@@ -62,19 +62,19 @@ static pthread_t t_mag, t_pid;
 static struct timespec tp1, tp2;
 static unsigned long startTime, procesTime;
 static float deltaT = 2.5e-3, dT_PWM = 0.0;
-extern int power;
-extern float angle_expect[3];
-//static float angle_expect[] = {0, 0, 0};
+static float angle_expect[3];
 static FILE *fp;
 static float T = 0;
+static unsigned int switchValueBefore;
 
 void Renew_LOG(Drone_Status *stat) {
     fprintf(fp, "%f\t%f\t", T, deltaT);
+    fprintf(fp, "%d\t%d\t%u\t%u\t", stat->spi_var.com.horDirection[0], stat->spi_var.com.horDirection[1], stat->spi_var.com.power, stat->spi_var.com.switchValue);
     fprintf(fp, "%f\t%f\t%f\t", stat->angle[0], stat->angle[1], stat->angle[2]);
     fprintf(fp, "%f\t%f\t%f\t", stat->accl_est[0], stat->accl_est[1],stat->accl_est[2]);
     fprintf(fp, "%f\t%f\t%f\t", stat->gyro_corr[0]*RAD_TO_DEG,stat->gyro_corr[1]*RAD_TO_DEG,stat->gyro_corr[2]*RAD_TO_DEG);
-    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
-//    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
+//    fprintf(fp, "%f\t%f\t%f\t", stat->ahrs.angVel[0], stat->ahrs.angVel[1], stat->ahrs.angVel[2]);
+    fprintf(fp, "%f\t%f\t%f\t", stat->i2c_var.magn[0], stat->i2c_var.magn[1],stat->i2c_var.magn[2]);
     fprintf(fp, "%f\t%f\t%f\t", stat->magn_est[0], stat->magn_est[1],stat->magn_est[2]);
     fprintf(fp, "%d\t%d\t%d\t%d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
     dT_PWM = 0.0;
@@ -94,7 +94,10 @@ void* Renew_MAG_cycle(void *data) {
 	    ++iMAG;
 	    if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
 	    else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
-	    else if ( (iDetect%999) == 2 ) {
+	    if ((iDetect%15) == 0) {
+		if (RF24_Renew(spi)>0) iDetect-=30;
+		++iRF24;
+	    } else if ( (iDetect%999) == 0 ) {
 		MCP3008_Renew(spi);
 		++iMCP;
 	    }
@@ -108,6 +111,7 @@ void* Renew_MAG_cycle(void *data) {
 
 void* Renew_PID_cycle(void *data) {
     I2CVariables* var = (I2CVariables*) data;
+//    SPIVariables* spi = &stat->spi_var;
     while (iThread) {
         pthread_mutex_lock(&global_mutex);
         while (global_thread != THREAD_PID) {
@@ -120,6 +124,14 @@ void* Renew_PID_cycle(void *data) {
 	    ++iPID;
             if ( (iDetect%9) == 1 ) measureTemp_triggerPres();
             else if ( (iDetect%9) == 8 ) measurePres_triggerTemp(var);
+	    //if ((iDetect%49)==0) RF24_exchangeInfo(&signIn, &iDetect);
+//	    if ((iDetect%49)==0) {
+//                dec[0] = iDetect & 0xFF;
+//                dec[1] = (iDetect>>8) & 0xFF;
+//                RF24_exchangeInfo(signIn, dec);
+//		RF24_Renew(spi);
+//            }
+
         }
         global_thread = -1;
         pthread_mutex_unlock(&global_mutex);
@@ -151,9 +163,10 @@ void Renew_accgyr_cycle(void *data) {
 	    while (pthread_mutex_trylock(&stat->spi_var.mutex) != 0) ;
 	    printf("Voltage : %f\n", stat->spi_var.voltage);
 	    pthread_mutex_unlock (&stat->spi_var.mutex);
-	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
+//	    printf("PWM = : %d, %d, %d, %d\n", stat->i2c_var.PWM_power[0], stat->i2c_var.PWM_power[1], stat->i2c_var.PWM_power[2], stat->i2c_var.PWM_power[3]);
         }
-	PID_update(&stat->i2c_var.pid, angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &power);
+    if (!stat->spi_var.com.switchValue && switchValueBefore) Drone_powerOff(stat);
+    else Drone_PID_update(stat);
 	pthread_mutex_unlock (&stat->i2c_var.mutex);
 //	if (!iThread) puts("Interrupt");
 
@@ -172,12 +185,14 @@ void Renew_accgyr_cycle(void *data) {
 	    pthread_cond_signal(&cond[global_thread]);
 	}
 */
-	if (iDetect == 5) iThread = 0;
+	if (iDetect == 1000) iThread = 0;
 
+	switchValueBefore = stat->spi_var.com.switchValue;
         iDetect++;
         tp1 = tp2;
         startTime = tp1.tv_sec*1000000000 + tp1.tv_nsec;
 	_usleep(3500);
+	//_usleep(5000);
     }
 #ifndef NOPWM
     PWM_reset(&stat->i2c_var);
@@ -229,7 +244,7 @@ void Drone_end(Drone_Status *stat) {
     for (i=0; i<NUM_THREADS; ++i) pthread_cond_destroy(&cond[i]);
     pthread_mutex_destroy(&global_mutex);
 
-    printf("iMAG = %d, iPID = %d, iMCP =%d\n", iMAG, iPID, iMCP);
+    printf("iMAG = %d, iPID = %d, iMCP =%d, iRF24= %d\n", iMAG, iPID, iMCP, iRF24);
     fclose(fp);
     SPIVariables_end(&stat->spi_var);
     I2CVariables_end(&stat->i2c_var);
@@ -284,6 +299,7 @@ void Drone_Start(Drone_Status *stat) {
 //    angle_expect[1] = 0.0;
     angle_expect[2] = stat->angle[2];
     if (DEBUG_MODE) printf("Start Eular Angle : %f, %f, %f\n", stat->angle[0], stat->angle[1], stat->angle[2]);
+//    RF24_exchangeInfo(signIn, &iDetect);
 
     for (i=0; i<NUM_THREADS; ++i) {
         pthread_cond_init(&cond[i],NULL);
@@ -384,3 +400,10 @@ void Drone_NoiseFilter(Drone_Status *stat) {
 }
 */
 
+void Drone_PID_update(Drone_Status *stat) {
+  PID_update(&stat->i2c_var.pid, stat->spi_var.com.angle_expect, stat->angle, stat->gyro_corr, stat->i2c_var.PWM_power, &dT_PWM, &stat->spi_var.com.power);
+}
+
+void Drone_powerOff(Drone_Status *stat) {
+    PWM_reset(&stat->i2c_var);
+}
