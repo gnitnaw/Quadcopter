@@ -93,7 +93,7 @@ int main(void) {
 
     Drone_Status stat;
     int ret;
-    char c = 'a';
+    //char c = 'a';
     if ( (ret=Drone_init(&stat)) != 0 ) return ret;
     //puts("Start calibration!");
     Drone_Calibration(&stat);

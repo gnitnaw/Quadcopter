@@ -1,5 +1,5 @@
 include_directories(${QUADCOPTER_SOURCE_DIR}/include)
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -O3 -std=gnu99")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -O3 -std=gnu11")
 add_library(I2CDEVICE GY80.c PCA9685PW.c I2CControl.c)
 add_library(RF24WT RF24.cpp spi.cpp compatibility.c RF24_Interface.cpp MCP3008.c SPIControl.c)
 link_directories(${QUADCOPTER_SOURCE_DIR}/src)

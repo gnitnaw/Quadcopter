@@ -1,22 +1,21 @@
 /*
-    Quadcopter -- GY80.c
-    Description :
-    The library to read data from GY80
-
-    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*    Quadcopter -- GY80.c
+*    Description : The library to read data from GY80
+*
+*    Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
+*
+*    This program is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU General Public License as published by
+*    the Free Software Foundation, either version 3 of the License, or
+*    (at your option) any later version.
+*
+*    This program is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*    GNU General Public License for more details.
+*
+*    You should have received a copy of the GNU General Public License
+*    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 
@@ -72,7 +71,7 @@ struct BMP085_Parameters {
 // Since only BMP085 will use it, and I prefer that nobody can see them, so I hide it here.
 static struct BMP085_Parameters Para_BMP085;
 
-static char regaddr[2], databuf[3];
+static char databuf[3];
 static short stat_accl[3], stat_gyro[3], stat_mag[3];
 //static long stat_UP, stat_UT;
 static short tmpMag;
@@ -103,7 +102,7 @@ void ADXL345_switch(void) {
 // void ADXL345_init() : Initialize ADXL345
 void ADXL345_init(void) {
     ADXL345_switch();
-
+    char regaddr[2];
     regaddr[0] = ADXL345_POWER_CTL;			// Standby
     regaddr[1] = 0x00;
     bcm2835_i2c_write(regaddr,2);
@@ -161,8 +160,8 @@ void ADXL345_init(void) {
 
 int ADXL345_getRawValue(short* acc) {
     ADXL345_switch();
-    regaddr[0] = ADXL345_DATAX0;
-    bcm2835_i2c_write(regaddr, 1);
+    char regaddr = ADXL345_DATAX0;
+    bcm2835_i2c_write(&regaddr, 1);
     if ( (ret_acc = bcm2835_i2c_read((char*)acc, 6)) != BCM2835_I2C_REASON_OK) return ret_acc;
     return 0;
 }
@@ -192,7 +191,7 @@ void L3G4200D_switch(void) {
 
 void L3G4200D_init(void) {
     L3G4200D_switch();
-
+    char regaddr[2];
     regaddr[0] = L3G4200D_CTRL_REG1;
     switch(L3G4200D_RATE) {
 	case 100:
@@ -257,8 +256,8 @@ int L3G4200D_getRawValue(short* gyr) {
 */
 int L3G4200D_getRawValue(short* gyr) {
     L3G4200D_switch();
-    regaddr[0] = L3G4200D_OUT_X_L_7B;
-    bcm2835_i2c_write(regaddr, 1);
+    char regaddr = L3G4200D_OUT_X_L_7B;
+    bcm2835_i2c_write(&regaddr, 1);
     if ( (ret_gyr = bcm2835_i2c_read((char*)gyr, 6)) != BCM2835_I2C_REASON_OK) return ret_gyr;
     return 0;
 }
@@ -290,7 +289,7 @@ void HMC5883L_switch(void) {
 
 void HMC5883L_init(void) {
     HMC5883L_switch();
-
+    char regaddr[2];
     regaddr[0] = HMC5883L_MODE_REG;
     regaddr[1] = 0x00;                              // continue mode , default
     bcm2835_i2c_write(regaddr,2);
@@ -332,6 +331,7 @@ void HMC5883L_init(void) {
 
 void HMC5883L_singleMeasurement(void) {
     HMC5883L_switch();
+    char regaddr[2];
     regaddr[0] = HMC5883L_MODE_REG;
     regaddr[1] = 0x01;                              // Single measurement mode
     bcm2835_i2c_write(regaddr,2);
@@ -339,8 +339,8 @@ void HMC5883L_singleMeasurement(void) {
 
 int HMC5883L_getRawValue(short* magn) {
     HMC5883L_switch();
-    regaddr[0] = HMC5883L_DATA_X_MSB;
-    bcm2835_i2c_write(regaddr, 1);
+    char regaddr = HMC5883L_DATA_X_MSB;
+    bcm2835_i2c_write(&regaddr, 1);
     if ( (ret_mag=bcm2835_i2c_read((char*) magn, 6)) != BCM2835_I2C_REASON_OK) return ret_mag;
     exchange((char*) magn, 6);
     tmpMag = magn[2];
@@ -386,7 +386,7 @@ void BMP085_switch(void) {
 void BMP085_init(void) {
     BMP085_switch();
     char *buf = (char*)&Para_BMP085;
-
+    char regaddr[2];
     regaddr[0] = BMP085_AC1;
     regaddr[1] = 0;
     bcm2835_i2c_write(regaddr, 1);
@@ -405,6 +405,7 @@ void BMP085_init(void) {
 
 void BMP085_Trigger_UTemp(void) {
     BMP085_switch();
+    char regaddr[2];
     regaddr[0] = 0xF4;
     regaddr[1] = 0x2E;
     bcm2835_i2c_write(regaddr,2);
@@ -415,6 +416,7 @@ void BMP085_Trigger_UTemp(void) {
 
 void BMP085_Trigger_UPressure(void) {
     BMP085_switch();
+    char regaddr[2];
     regaddr[0] = 0xF4;
     regaddr[1] = 0x34+(OSRS<<6);
     bcm2835_i2c_write(regaddr,2);
@@ -425,8 +427,8 @@ void BMP085_Trigger_UPressure(void) {
 
 int BMP085_getRawTemp(long* UT) {
     BMP085_switch();
-    regaddr[0] = 0xF6;
-    bcm2835_i2c_write(regaddr, 1);
+    char regaddr = 0xF6;
+    bcm2835_i2c_write(&regaddr, 1);
     if ( (ret_bar=bcm2835_i2c_read(databuf, 2)) != BCM2835_I2C_REASON_OK) return ret_bar;
     *UT = (long)(databuf[0]<<8) + databuf[1];
     return 0;
@@ -434,8 +436,8 @@ int BMP085_getRawTemp(long* UT) {
 
 int BMP085_getRawPressure(long* UP) {
     BMP085_switch();
-    regaddr[0] = 0xF6;
-    bcm2835_i2c_write(regaddr, 1);
+    char regaddr = 0xF6;
+    bcm2835_i2c_write(&regaddr, 1);
     if ( (ret_bar=bcm2835_i2c_read(databuf, 3)) != BCM2835_I2C_REASON_OK) return ret_bar;
     *UP = ((long)(databuf[0]<<16) + (long)(databuf[1]<<8) + databuf[2]) >> (8-OSRS);
     return 0;

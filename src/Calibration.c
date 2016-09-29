@@ -29,7 +29,7 @@
 
 //static unsigned int thread_count;
 
-void Calibration_getSD_singlethread(void *cal) {
+void* Calibration_getSD_singlethread(void *cal) {
     int i, j, nItem=1, nSample=N_SAMPLE_CALIBRATION, SD_Check=0;
     volatile int ret;
     float* var=0;
@@ -79,7 +79,7 @@ void Calibration_getSD_singlethread(void *cal) {
 	if (i2c_caliThread->sd[0]/i2c_caliThread->mean[0] > 0.01) {
 	    puts("Need to do it again");
 	    Calibration_getSD_singlethread(cal);
-	    return;
+	    //return;
 	}
     }
     pthread_exit(NULL);
@@ -98,20 +98,20 @@ void Calibration_getSD_multithread(I2CVariblesCali* i2c_valCali) {
     cali[0].mean = (float*) i2c_valCali->accl_offset;
     cali[0].sd = (float*) i2c_valCali->accl_sd;
     cali[0].c = 'A';
-    pthread_create(&thread_i2c[0], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[0]);
+    pthread_create(&thread_i2c[0], NULL, Calibration_getSD_singlethread, (void*) &cali[0]);
 //    pthread_join(thread_i2c[0],NULL);
 
     cali[1].i2c_var = &i2c_var;
     cali[1].mean = (float*) i2c_valCali->magn_offset;
     cali[1].sd = (float*) i2c_valCali->magn_sd;
     cali[1].c = 'M';
-    pthread_create(&thread_i2c[1], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[1]);
+    pthread_create(&thread_i2c[1], NULL, Calibration_getSD_singlethread, (void*) &cali[1]);
 
     cali[2].i2c_var = &i2c_var;
     cali[2].mean = (float*) &i2c_valCali->altitude_offset;
     cali[2].sd = (float*) &i2c_valCali->altitude_sd;
     cali[2].c = 'B';
-    pthread_create(&thread_i2c[2], NULL, (void*) Calibration_getSD_singlethread, (void*) &cali[2]);
+    pthread_create(&thread_i2c[2], NULL, Calibration_getSD_singlethread, (void*) &cali[2]);
 //    pthread_join(thread_i2c[2],NULL);
 
     pthread_join(thread_i2c[0],NULL);

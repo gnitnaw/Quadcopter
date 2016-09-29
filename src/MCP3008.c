@@ -38,7 +38,8 @@ void MCP3008_getRawValue(void) {
 void MCP3008_getRealData(float *volt) {
     msb = (uint8_t)receive_buf[1];
     lsb = (uint8_t)receive_buf[2];
-    msbRead = msb & 0b00000011;
+    //msbRead = msb & 0b00000011;
+    msbRead = msb & 0x03;
     adcRead0 = (msbRead << 8) | lsb;
 //    printf("ADC: %d\n", adcRead0);
     *volt = v_input * (float)adcRead0/ FULLVALUE;

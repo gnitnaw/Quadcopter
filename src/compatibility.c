@@ -38,7 +38,7 @@ void __usleep(int milisec)
  */
 
  
-void __start_timer()
+void __start_timer(void)
 {
 	gettimeofday(&start, NULL);
 }

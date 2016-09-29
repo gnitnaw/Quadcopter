@@ -18,9 +18,9 @@ extern "C" {
 
 void __msleep(int milisec);
 void __usleep(int milisec);
-void __start_timer();
+void __start_timer(void);
 long __millis();
-inline long millis(){return __millis();};
+inline long millis(){return __millis();}
 #ifdef	__cplusplus
 }
 #endif

@@ -1,7 +1,6 @@
 /*
     Quadcopter -- GY80_Address.h
-    Description :
-    The address of setting/information of GY80
+    Description : The address of setting/information of GY80
 
     Copyright 2015 Wan-Ting CHEN (wanting@gmail.com)
 
